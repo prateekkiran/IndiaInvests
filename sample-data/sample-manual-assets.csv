@@ -1,0 +1,5 @@
+label,asset_class,value,valuation_date,basis,liquid
+EPF balance,EPF,540000,2026-03-31,passbook,no
+PPF account,PPF,310000,2026-03-31,passbook,no
+Emergency savings,Cash,250000,2026-10-10,bank statement,yes
+Sovereign gold bonds,Gold,180000,2026-09-30,self-estimate,no
