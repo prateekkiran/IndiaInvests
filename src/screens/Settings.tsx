@@ -67,6 +67,9 @@ export function Settings() {
             No market data is fetched automatically; valuations come from your statements and any prices you enter. Benchmarks, retirement drawdown and depository/broker adapters are planned for later releases.
           </p>
           <Badge tone="neutral">Engine {state.engineVersion}</Badge>
+          <p className="soft" style={{ fontSize: "0.85rem", marginTop: 10 }}>
+            <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a> — your data stays on this device.
+          </p>
         </Card>
       </div>
 
