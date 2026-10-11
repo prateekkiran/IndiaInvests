@@ -233,3 +233,29 @@ table.data tr:last-child td { border-bottom: none; }
 .empty .big { font-size: 2rem; margin-bottom: 8px; }
 .kbd { font-family: var(--mono); font-size: 0.8rem; background: var(--surface-sunken); padding: 1px 6px; border-radius: 5px; }
 .data-health { position: sticky; top: 0; z-index: 10; }
+
+/* Motion & showcase styling. Disabled by the prefers-reduced-motion rule above. */
+.btn { transition: transform 0.12s ease, background 0.15s ease, box-shadow 0.15s ease; will-change: transform; }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: translateY(0) scale(0.97); }
+.btn.primary:hover, .btn.teal:hover { box-shadow: 0 4px 14px rgba(59, 74, 156, 0.28); }
+.card { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.navlink { transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease; }
+.navlink:active { transform: scale(0.98); }
+.tab { transition: color 0.15s ease, border-color 0.2s ease; }
+.seg button { transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease; }
+.hero { position: relative; overflow: hidden; border-radius: 20px; padding: 54px 36px 48px; background: linear-gradient(135deg, #2f3d85 0%, #3b4a9c 42%, #14938a 100%); background-size: 200% 200%; animation: heroShift 14s ease infinite; color: #fff; box-shadow: var(--shadow-md); }
+@keyframes heroShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.hero-inner { position: relative; z-index: 2; max-width: 60ch; }
+.hero-mark { width: 54px; height: 54px; border-radius: 15px; background: rgba(255,255,255,0.92); box-shadow: 0 8px 30px rgba(0,0,0,0.22); margin-bottom: 18px; }
+.hero-title { font-size: 2.1rem; margin: 0 0 10px; letter-spacing: -0.02em; color: #fff; }
+.hero-sub { font-size: 1.03rem; line-height: 1.6; color: rgba(255,255,255,0.9); margin: 0; }
+.hero-blob { position: absolute; border-radius: 50%; filter: blur(42px); opacity: 0.5; z-index: 1; will-change: transform; }
+.hero-blob.b1 { width: 260px; height: 260px; background: #5262c0; top: -70px; right: 8%; }
+.hero-blob.b2 { width: 220px; height: 220px; background: #14938a; bottom: -90px; right: 26%; }
+.hero-blob.b3 { width: 180px; height: 180px; background: #7a86d6; top: 30%; right: -40px; }
+.shimmer { position: relative; overflow: hidden; background: var(--surface-sunken); border-radius: 8px; }
+.shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+@media (max-width: 820px) { .hero { padding: 36px 22px; } .hero-title { font-size: 1.6rem; } }

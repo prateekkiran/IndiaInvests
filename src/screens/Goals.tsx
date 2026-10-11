@@ -5,6 +5,7 @@ import { computeGoal, allocatableAssets, allocationAfterChange, allocationLedger
 import { formatINR, formatINRCompact, formatPercent } from "../engine/money";
 import { fmtDate, uid, todayISO, addMonthsISO } from "../util";
 import { Goal, AmountBasis } from "../types";
+import { CountUp, Reveal, AnimatedBar } from "../anim/components";
 
 const TEMPLATES: Array<{ id: Goal["template"]; label: string; years: number; amount: number }> = [
   { id: "emergency", label: "Emergency reserve", years: 1, amount: 600000 },
@@ -34,7 +35,7 @@ export function Goals() {
         <EmptyState icon="◇" title="No goals yet">Create a goal to see funding ratio and shortfall with your own assumptions.</EmptyState>
       ) : (
         <div className="grid cols-2">
-          {state.goals.map((g) => <GoalCard key={g.id} goal={g} onEdit={() => setEditingId(g.id)} />)}
+          {state.goals.map((g, i) => <Reveal key={g.id} delay={i * 80}><GoalCard goal={g} onEdit={() => setEditingId(g.id)} /></Reveal>)}
         </div>
       )}
 
@@ -52,12 +53,12 @@ function GoalCard({ goal, onEdit }: { goal: Goal; onEdit: () => void }) {
     <Card>
       <div className="row between">
         <h3 style={{ margin: 0 }}>{goal.label}</h3>
-        <Badge tone={pct >= 100 ? "green" : pct >= 60 ? "teal" : "amber"}>{Math.round(c.fundingRatio * 100)}% funded</Badge>
+        <Badge tone={pct >= 100 ? "green" : pct >= 60 ? "teal" : "amber"}><CountUp value={Math.round(c.fundingRatio * 100)} duration={900} format={(v) => `${Math.round(v)}% funded`} /></Badge>
       </div>
       <div className="soft" style={{ fontSize: "0.84rem", marginBottom: 10 }}>Target {fmtDate(goal.targetDate)} · {formatPercent(goal.annualReturn)} return · {formatPercent(goal.annualInflation)} inflation</div>
 
-      <div style={{ height: 8, background: "var(--surface-sunken)", borderRadius: 6, overflow: "hidden", marginBottom: 12 }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: pct >= 100 ? "var(--green-600)" : "var(--indigo-600)" }} />
+      <div style={{ marginBottom: 12 }}>
+        <AnimatedBar pct={pct} color={pct >= 100 ? "var(--green-600)" : "var(--indigo-600)"} delay={150} />
       </div>
 
       <table className="data">

@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { classNames } from "../util";
+import { useEffect, useRef } from "react";
+import { popIn, revealIn, prefersReduced, animate } from "../anim/motion";
 
 export function Card({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return <div className={classNames("card", className)} style={style}>{children}</div>;
@@ -175,9 +177,23 @@ export function Toggle({ label, checked, onChange }: { label: string; checked: b
 }
 
 export function Sheet({ title, onClose, children, footer }: { title: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode }) {
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (backdropRef.current && !prefersReduced()) {
+      try {
+        backdropRef.current.style.opacity = "0";
+        animate(backdropRef.current as any, { opacity: [0, 1], duration: 260, ease: "outQuad" });
+      } catch {
+        backdropRef.current.style.opacity = "1";
+      }
+    }
+    const cancel = popIn(sheetRef.current, { from: 0.92, duration: 480 });
+    return cancel;
+  }, []);
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+    <div className="sheet-backdrop" ref={backdropRef} onClick={onClose}>
+      <div className="sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="row between" style={{ marginBottom: 14 }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">✕</Button>

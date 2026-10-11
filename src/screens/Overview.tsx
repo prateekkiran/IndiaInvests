@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect, useRef } from "react";
 import { useApp } from "../store/AppContext";
 import { portfolioSummary, portfolioPerformance } from "../store/portfolio";
 import { computeGoal } from "../store/goals";
@@ -7,11 +7,70 @@ import { PageHead, Card, Stat, Button, Badge, Callout } from "../components/ui";
 import { formatINR, formatINRCompact, formatPercent } from "../engine/money";
 import { fmtDate } from "../util";
 import { AssetClass } from "../types";
+import { CountUp, Reveal, AnimatedBar } from "../anim/components";
+import { floatLoop, popIn, revealStagger, prefersReduced } from "../anim/motion";
 
 const CLASS_LABEL: Record<AssetClass, string> = {
   equity_mf: "Equity funds", debt_mf: "Debt funds", hybrid_mf: "Hybrid funds", other_mf: "Other funds",
   cash: "Cash", fd_rd: "FD / RD", epf: "EPF", ppf: "PPF", nps: "NPS", gold: "Gold", property: "Property", other: "Other",
 };
+
+function Hero({ onNavigate, name }: { onNavigate: (r: string) => void; name?: string }) {
+  const s1 = useRef<HTMLDivElement | null>(null);
+  const s2 = useRef<HTMLDivElement | null>(null);
+  const s3 = useRef<HTMLDivElement | null>(null);
+  const mark = useRef<HTMLDivElement | null>(null);
+  const cardsRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const cancels: Array<() => void> = [];
+    cancels.push(popIn(mark.current, { from: 0.6, duration: 700 }));
+    cancels.push(floatLoop(s1.current, { y: 22, x: 10, duration: 5200 }));
+    cancels.push(floatLoop(s2.current, { y: 16, x: -14, duration: 6100, delay: 400 }));
+    cancels.push(floatLoop(s3.current, { y: 26, x: 8, duration: 4700, delay: 800 }));
+    if (cardsRef.current) cancels.push(revealStagger(cardsRef.current.querySelectorAll(".card"), { each: 120, y: 26, start: 250 }));
+    return () => cancels.forEach((c) => c && c());
+  }, []);
+
+  return (
+    <div>
+      <div className="hero">
+        <div className="hero-blob b1" ref={s1} />
+        <div className="hero-blob b2" ref={s2} />
+        <div className="hero-blob b3" ref={s3} />
+        <div className="hero-inner">
+          <div className="hero-mark" ref={mark} aria-hidden />
+          <h1 className="hero-title">{name ? `Welcome, ${name}` : "Welcome"}</h1>
+          <p className="hero-sub">
+            See what you own, understand what the evidence supports, and explore how today's decisions
+            could affect future goals. Everything runs on your device — nothing is uploaded.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid cols-3" ref={cardsRef} style={{ marginTop: 20 }}>
+        <Card>
+          <div style={{ fontSize: "1.6rem" }}>∑</div>
+          <h3>Try a calculator</h3>
+          <p className="soft">Plan a SIP, lump sum or goal in under a minute. No sign-up, no statement.</p>
+          <Button variant="primary" onClick={() => onNavigate("calculators")}>Open calculators</Button>
+        </Card>
+        <Card>
+          <div style={{ fontSize: "1.6rem" }}>▤</div>
+          <h3>Import my portfolio</h3>
+          <p className="soft">Bring in a CSV or a CAMS/KFintech statement. You download the file yourself — we never ask for provider logins.</p>
+          <Button onClick={() => onNavigate("portfolio")}>Go to portfolio</Button>
+        </Card>
+        <Card>
+          <div style={{ fontSize: "1.6rem" }}>◇</div>
+          <h3>Build a goal</h3>
+          <p className="soft">Turn an amount into a realistic plan with inflation and your own return assumptions.</p>
+          <Button onClick={() => onNavigate("goals")}>Plan a goal</Button>
+        </Card>
+      </div>
+    </div>
+  );
+}
 
 export function Overview({ onNavigate }: { onNavigate: (route: string) => void }) {
   const { state, vaultStatus } = useApp();
@@ -23,29 +82,7 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
   if (!hasData) {
     return (
       <div>
-        <PageHead title={`Welcome${state.owners[0] ? ", " + state.owners[0].label : ""}`}>
-          See what you own, understand what the evidence supports, and explore how today's decisions could affect future goals. Everything runs on your device — nothing is uploaded, and no market data is fetched automatically.
-        </PageHead>
-        <div className="grid cols-3">
-          <Card>
-            <div style={{ fontSize: "1.6rem" }}>∑</div>
-            <h3>Try a calculator</h3>
-            <p className="soft">Plan a SIP, lump sum or goal in under a minute. No sign-up, no statement.</p>
-            <Button variant="primary" onClick={() => onNavigate("calculators")}>Open calculators</Button>
-          </Card>
-          <Card>
-            <div style={{ fontSize: "1.6rem" }}>▤</div>
-            <h3>Import my portfolio</h3>
-            <p className="soft">Bring in a CSV or a CAMS/KFintech statement. You download the file yourself — we never ask for provider logins.</p>
-            <Button onClick={() => onNavigate("portfolio")}>Go to portfolio</Button>
-          </Card>
-          <Card>
-            <div style={{ fontSize: "1.6rem" }}>◇</div>
-            <h3>Build a goal</h3>
-            <p className="soft">Turn an amount into a realistic plan with inflation and your own return assumptions.</p>
-            <Button onClick={() => onNavigate("goals")}>Plan a goal</Button>
-          </Card>
-        </div>
+        <Hero onNavigate={onNavigate} name={state.owners[0]?.label} />
         <div style={{ marginTop: 16 }}>
           <Callout tone="info">
             {vaultStatus === "none"
@@ -64,7 +101,6 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
     <div>
       <PageHead title="Overview" />
 
-      {/* Data-health strip */}
       {(summary.unvaluedCount > 0 || summary.anyStale) && (
         <div className="data-health" style={{ marginBottom: 16 }}>
           <Callout tone="warn">
@@ -75,9 +111,9 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
       )}
 
       <div className="grid cols-3">
-        <Card><Stat label="Valued assets" value={formatINR(summary.valuedTotal)} sub={<span>Latest recorded values{summary.valuationDateMin ? ` · ${fmtDate(summary.valuationDateMin)} – ${fmtDate(summary.valuationDateMax)}` : ""}</span>} /></Card>
-        <Card><Stat label="Liabilities" value={formatINR(summary.manualLiabilitiesTotal)} sub="Loans & other debts (manual)" /></Card>
-        <Card><Stat label="Net worth" value={formatINR(netWorth)} sub="Assets − liabilities" /></Card>
+        <Reveal delay={0}><Card><Stat label="Valued assets" value={<CountUp value={summary.valuedTotal} format={formatINR} />} sub={<span>Latest recorded values{summary.valuationDateMin ? ` · ${fmtDate(summary.valuationDateMin)} – ${fmtDate(summary.valuationDateMax)}` : ""}</span>} /></Card></Reveal>
+        <Reveal delay={90}><Card><Stat label="Liabilities" value={<CountUp value={summary.manualLiabilitiesTotal} format={formatINR} />} sub="Loans & other debts (manual)" /></Card></Reveal>
+        <Reveal delay={180}><Card><Stat label="Net worth" value={<CountUp value={netWorth} format={formatINR} />} sub="Assets − liabilities" /></Card></Reveal>
       </div>
 
       {summary.valuationDateMin && summary.valuationDateMin !== summary.valuationDateMax && (
@@ -87,28 +123,32 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
       )}
 
       <div className="grid cols-2" style={{ marginTop: 16, alignItems: "start" }}>
-        <Card>
-          <h3>Asset allocation</h3>
-          <AllocationBars title="By asset class" data={alloc} />
-        </Card>
+        <Reveal delay={120}>
+          <Card>
+            <h3>Asset allocation</h3>
+            <AllocationBars title="By asset class" data={alloc} />
+          </Card>
+        </Reveal>
 
-        <Card>
-          <h3>Returns</h3>
-          {perf.available && perf.xirr ? (
-            perf.xirr.status === "ok" ? (
-              <>
-                <Stat label="Portfolio XIRR (since inception)" value={formatPercent(perf.xirr.rate!)} sub={`Invested ${formatINRCompact(perf.invested!)} · now ${formatINRCompact(perf.currentValue!)}`} />
-                <div style={{ marginTop: 8 }}><Badge tone="teal">Based on {state.transactions.filter((t) => typeof t.investorCashFlow === "number").length} cash flows</Badge></div>
-                {perf.note && <div style={{ marginTop: 8 }}><Callout tone="warn">{perf.note}</Callout></div>}
-              </>
+        <Reveal delay={200}>
+          <Card>
+            <h3>Returns</h3>
+            {perf.available && perf.xirr ? (
+              perf.xirr.status === "ok" ? (
+                <>
+                  <Stat label="Portfolio XIRR (since inception)" value={<CountUp value={perf.xirr.rate! * 100} duration={1300} format={(v) => `${v.toFixed(2)}%`} />} sub={`Invested ${formatINRCompact(perf.invested!)} · now ${formatINRCompact(perf.currentValue!)}`} />
+                  <div style={{ marginTop: 8 }}><Badge tone="teal">Based on {state.transactions.filter((t) => typeof t.investorCashFlow === "number").length} cash flows</Badge></div>
+                  {perf.note && <div style={{ marginTop: 8 }}><Callout tone="warn">{perf.note}</Callout></div>}
+                </>
+              ) : (
+                <Callout tone="warn">XIRR not shown: {perf.xirr.message}</Callout>
+              )
             ) : (
-              <Callout tone="warn">XIRR not shown: {perf.xirr.message}</Callout>
-            )
-          ) : (
-            <Callout tone="info">{perf.reason}</Callout>
-          )}
-          <p className="muted" style={{ fontSize: "0.8rem", marginTop: 12 }}>A holdings-only portfolio shows value and allocation, not since-inception returns — those need dated transaction history.</p>
-        </Card>
+              <Callout tone="info">{perf.reason}</Callout>
+            )}
+            <p className="muted" style={{ fontSize: "0.8rem", marginTop: 12 }}>A holdings-only portfolio shows value and allocation, not since-inception returns — those need dated transaction history.</p>
+          </Card>
+        </Reveal>
       </div>
 
       <div style={{ marginTop: 16 }}>
@@ -120,18 +160,20 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
           <Card><p className="soft" style={{ margin: 0 }}>No goals yet. <Button variant="ghost" size="sm" onClick={() => onNavigate("goals")}>Create one →</Button></p></Card>
         ) : (
           <div className="grid cols-3">
-            {goalsWithCalc.map(({ goal, calc }) => {
+            {goalsWithCalc.map(({ goal, calc }, i) => {
               const pct = Math.min(100, Math.round(calc.fundingRatio * 100));
               const tone = pct >= 100 ? "green" : pct >= 60 ? "teal" : "amber";
               return (
-                <Card key={goal.id}>
-                  <div className="row between"><strong>{goal.label}</strong><Badge tone={tone as any}>{pct}% funded</Badge></div>
-                  <div style={{ height: 8, background: "var(--surface-sunken)", borderRadius: 6, overflow: "hidden", margin: "10px 0" }}>
-                    <div style={{ width: `${pct}%`, height: "100%", background: pct >= 100 ? "var(--green-600)" : "var(--indigo-600)" }} />
-                  </div>
-                  <div className="stat-sub">Target {formatINRCompact(calc.futureTarget)} by {fmtDate(goal.targetDate)}</div>
-                  {calc.shortfallFuture > 0 && <div className="stat-sub" style={{ color: "var(--amber-600)" }}>Shortfall {formatINRCompact(calc.shortfallFuture)}</div>}
-                </Card>
+                <Reveal key={goal.id} delay={i * 90}>
+                  <Card>
+                    <div className="row between"><strong>{goal.label}</strong><Badge tone={tone as any}>{pct}% funded</Badge></div>
+                    <div style={{ margin: "10px 0" }}>
+                      <AnimatedBar pct={pct} color={pct >= 100 ? "var(--green-600)" : "var(--indigo-600)"} delay={i * 90 + 200} />
+                    </div>
+                    <div className="stat-sub">Target {formatINRCompact(calc.futureTarget)} by {fmtDate(goal.targetDate)}</div>
+                    {calc.shortfallFuture > 0 && <div className="stat-sub" style={{ color: "var(--amber-600)" }}>Shortfall {formatINRCompact(calc.shortfallFuture)}</div>}
+                  </Card>
+                </Reveal>
               );
             })}
           </div>

@@ -7,6 +7,7 @@ import { PageHead, Card, Button, NumberField, SliderField, Segmented, Callout, D
 import { formatINR, formatPercent, groupIndian } from "../engine/money";
 import { uid, todayISO } from "../util";
 import { ENGINE_VERSION } from "../types";
+import { Reveal } from "../anim/components";
 
 const KINDS: Array<{ id: CalculatorKind; label: string }> = [
   { id: "sip", label: "SIP" },
@@ -70,7 +71,7 @@ export function Calculators() {
       </div>
 
       <div className="grid cols-2" style={{ alignItems: "start" }}>
-        <Card>
+        <Reveal><Card>
           <h3>Inputs</h3>
 
           {(kind === "sip" || kind === "stepup") && (
@@ -115,9 +116,9 @@ export function Calculators() {
           )}
 
           <Callout tone="info">Assumed annual return is illustrative and never inferred from any fund's past performance.</Callout>
-        </Card>
+        </Card></Reveal>
 
-        <div className="stack">
+        <Reveal delay={120} className="stack">
           <Card>
             <div className="row between">
               <h3 style={{ margin: 0 }}>Result</h3>
@@ -172,7 +173,7 @@ export function Calculators() {
               </div>
             </Card>
           )}
-        </div>
+        </Reveal>
       </div>
     </div>
   );

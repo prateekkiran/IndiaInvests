@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { useRef, useLayoutEffect } from "react";
 import { AppProvider, useApp } from "./store/AppContext";
+import { revealIn, revealStagger, prefersReduced } from "./anim/motion";
 import { Overview } from "./screens/Overview";
 import { Calculators } from "./screens/Calculators";
 import { Portfolio } from "./screens/Portfolio";
@@ -29,12 +31,24 @@ function routeFromHash(): Route {
 function Shell() {
   const { vaultStatus } = useApp();
   const [route, setRoute] = useState<Route>(routeFromHash());
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const onHash = () => setRoute(routeFromHash());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+
+  // Stagger the sidebar nav items in once.
+  useLayoutEffect(() => {
+    if (navRef.current) revealStagger(navRef.current.querySelectorAll(".navlink"), { each: 55, y: 10, duration: 500 });
+  }, []);
+
+  // Animate the content area on every route change.
+  useLayoutEffect(() => {
+    if (contentRef.current) revealIn(contentRef.current, { y: 14, duration: 480 });
+  }, [route]);
 
   const go = (r: Route) => {
     window.location.hash = `/${r}`;
@@ -62,7 +76,7 @@ function Shell() {
 
   return (
     <div className="app-shell">
-      <nav className="sidebar" aria-label="Primary">
+      <nav className="sidebar" aria-label="Primary" ref={navRef as any}>
         <div className="brand">
           <div className="brand-mark" aria-hidden />
           <div>
@@ -85,7 +99,7 @@ function Shell() {
       </nav>
 
       <div className="main">
-        <div className="content">{screen}</div>
+        <div className="content" ref={contentRef}>{screen}</div>
       </div>
 
       <nav className="mobile-nav" aria-label="Primary">

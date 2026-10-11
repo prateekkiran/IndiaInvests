@@ -4,6 +4,7 @@ import { PageHead, Card, Button, Badge, Callout, EmptyState, Sheet, TextField } 
 import { portfolioSummary } from "../store/portfolio";
 import { formatINR } from "../engine/money";
 import { fmtDate } from "../util";
+import { CountUp, Reveal } from "../anim/components";
 
 export function DataCentre() {
   const { state, dispatch, encrypted, exportBackup, importBackup, markBackupNow, wipe } = useApp();
@@ -88,9 +89,9 @@ export function DataCentre() {
           <h3>Coverage</h3>
           <table className="data">
             <tbody>
-              <tr><td>Valued holdings</td><td className="num">{summary.valuedCount}</td></tr>
+              <tr><td>Valued holdings</td><td className="num"><CountUp value={summary.valuedCount} duration={800} format={(v) => String(Math.round(v))} /></td></tr>
               <tr><td>Unpriced holdings</td><td className="num">{summary.unvaluedCount}</td></tr>
-              <tr><td>Valued total</td><td className="num">{formatINR(summary.valuedTotal)}</td></tr>
+              <tr><td>Valued total</td><td className="num"><CountUp value={summary.valuedTotal} format={formatINR} /></td></tr>
               <tr><td>Valuation dates</td><td className="num">{summary.valuationDateMin ? `${fmtDate(summary.valuationDateMin)} – ${fmtDate(summary.valuationDateMax)}` : "—"}</td></tr>
               <tr><td>Open issues</td><td className="num">{state.issues.filter((i) => !i.resolved).length}</td></tr>
             </tbody>
@@ -99,7 +100,7 @@ export function DataCentre() {
         </Card>
       </div>
 
-      <Card style={{ marginTop: 16 }}>
+      <Reveal delay={80}><Card style={{ marginTop: 16 }}>
         <h3>Import history</h3>
         {state.importBatches.length === 0 ? (
           <EmptyState icon="⛁" title="No imports yet">Imported batches appear here with their parser version and can be rolled back.</EmptyState>
@@ -122,7 +123,7 @@ export function DataCentre() {
             </table>
           </div>
         )}
-      </Card>
+      </Card></Reveal>
 
       <Card style={{ marginTop: 16, borderColor: "var(--red-100)" }}>
         <h3 style={{ color: "var(--red-600)" }}>Delete everything</h3>
