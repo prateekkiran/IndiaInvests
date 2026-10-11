@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+:root{
+--indigo-700:#8f3f22;--indigo-600:#b4542f;--indigo-500:#c87a5c;--indigo-100:#f3e5dd;
+--teal-600:#4a5a7c;--teal-500:#6f80a4;--teal-100:#e6e8f1;
+--surface:#faf9f5;--raised:#fff;--sunken:#f1efe8;--border:#e5e1d7;--border-strong:#d4cfc1;
+--text:#141413;--soft:#4c4b45;--faint:#7b7a72;
+--amber-600:#a66a1f;--amber-100:#f6ead2;--red-600:#a53f2f;--red-100:#f4ddd6;--green-600:#4f7a52;--green-100:#e2ecdc;
+--mono:ui-monospace,"SF Mono",Menlo,monospace;--font:"Inter",system-ui,-apple-system,sans-serif;}
+*{box-sizing:border-box}body{margin:0;background:var(--surface);color:var(--text);font-family:var(--font);padding:28px;line-height:1.5}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+.card{background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:0 1px 2px rgba(20,19,19,.06);min-width:220px}
+.lbl{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:500}
+.val{font-size:1.7rem;font-weight:700;letter-spacing:-.02em}
+.sub{font-size:.82rem;color:var(--soft)}
+.btn{display:inline-flex;padding:9px 16px;border-radius:9px;font-weight:600;font-size:.9rem;border:1px solid var(--border-strong);background:var(--raised);color:var(--text);cursor:pointer}
+.btn.primary{background:var(--indigo-600);border-color:var(--indigo-600);color:#fff}
+.btn.slate{background:var(--teal-600);border-color:var(--teal-600);color:#fff}
+.badge{display:inline-flex;padding:2px 9px;border-radius:999px;font-size:.75rem;font-weight:600;margin-right:6px}
+.b-indigo{background:var(--indigo-100);color:var(--indigo-700)}.b-slate{background:var(--teal-100);color:var(--teal-600)}
+.b-green{background:var(--green-100);color:var(--green-600)}.b-amber{background:var(--amber-100);color:var(--amber-600)}.b-red{background:var(--red-100);color:var(--red-600)}
+.hero{position:relative;overflow:hidden;border-radius:20px;padding:40px 32px;color:#fff;background:linear-gradient(135deg,#5c2f1c 0%,#b4542f 46%,#d08a5f 100%);margin-bottom:20px}
+.hero h1{font-size:2rem;margin:0 0 8px;letter-spacing:-.02em}.hero p{margin:0;opacity:.9;max-width:60ch}
+.hmark{width:50px;height:50px;border-radius:14px;background:rgba(255,255,255,.92);margin-bottom:14px}
+.bar{display:flex;height:16px;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-top:4px}
+.seg1{background:var(--indigo-600)}.seg2{background:var(--teal-600)}.seg3{background:var(--indigo-500)}.seg4{background:var(--teal-500)}.seg5{background:var(--amber-600)}
+.fund{height:8px;background:var(--sunken);border-radius:6px;overflow:hidden;margin-top:8px}.fund>div{height:100%;background:var(--indigo-600)}
+h3{margin:0 0 12px}svg{display:block}
+</style></head><body>
+<div class="hero"><div class="hmark"></div><h1>India Investment Journey</h1><p>See what you own, understand what the evidence supports, and explore how today's decisions could affect future goals.</p></div>
+<div class="row">
+  <div class="card"><div class="lbl">Net worth</div><div class="val">₹42,80,000</div><div class="sub">Assets − liabilities</div></div>
+  <div class="card"><div class="lbl">Portfolio XIRR</div><div class="val">13.42%</div><div class="sub">Based on 24 cash flows</div></div>
+  <div class="card"><div class="lbl">Retirement goal</div><div class="val">68% funded</div><div class="fund"><div style="width:68%"></div></div></div>
+</div>
+<div class="row" style="margin-top:16px">
+  <div class="card" style="flex:1"><h3>Asset allocation</h3>
+    <div class="bar"><div class="seg1" style="width:42%"></div><div class="seg2" style="width:26%"></div><div class="seg3" style="width:16%"></div><div class="seg4" style="width:10%"></div><div class="seg5" style="width:6%"></div></div>
+    <div style="margin-top:14px"><span class="badge b-indigo">Equity</span><span class="badge b-slate">Debt</span><span class="badge b-green">Fully funded</span><span class="badge b-amber">Stale price</span><span class="badge b-red">Unpriced</span></div>
+    <div style="margin-top:14px" class="row">
+      <span class="btn primary">Primary action</span><span class="btn slate">Secondary</span><span class="btn">Default</span>
+    </div>
+  </div>
+  <div class="card" style="flex:1"><h3>Growth vs contributions</h3>
+    <svg viewBox="0 0 320 150" width="100%">
+      <polygon points="0,150 0,110 80,96 160,74 240,48 320,22 320,150" fill="#b4542f" opacity="0.26"/>
+      <polygon points="0,150 0,128 80,120 160,108 240,96 320,86 320,150" fill="#4a5a7c" opacity="0.4"/>
+      <polyline points="0,110 80,96 160,74 240,48 320,22" fill="none" stroke="#b4542f" stroke-width="2.5"/>
+      <polyline points="0,128 80,120 160,108 240,96 320,86" fill="none" stroke="#4a5a7c" stroke-width="2.2"/>
+      <line x1="200" y1="10" x2="200" y2="150" stroke="#7b7a72" stroke-dasharray="4 4"/>
+    </svg>
+    <div style="margin-top:6px"><span class="lbl" style="color:#b4542f">● Growth</span> &nbsp; <span class="lbl" style="color:#4a5a7c">● Contributed</span></div>
+  </div>
+</div>
+</body></html>

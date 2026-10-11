@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: "InvestJourney",
         description:
           "See what you own, understand what the evidence supports, and plan your financial journey. Private, on-device.",
-        theme_color: "#3b4a9c",
-        background_color: "#faf8f4",
+        theme_color: "#b4542f",
+        background_color: "#faf9f5",
         display: "standalone",
         start_url: "/",
         icons: [
