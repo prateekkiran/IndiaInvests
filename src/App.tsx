@@ -11,18 +11,19 @@ import { Explore } from "./screens/Explore";
 import { DataCentre } from "./screens/DataCentre";
 import { Settings } from "./screens/Settings";
 import { VaultGate } from "./screens/VaultGate";
+import { Icon, IconName } from "./components/Icon";
 
 type Route = "overview" | "portfolio" | "goals" | "household" | "explore" | "calculators" | "data" | "settings";
 
-const NAV: Array<{ id: Route; label: string; ico: string }> = [
-  { id: "overview", label: "Overview", ico: "◎" },
-  { id: "portfolio", label: "Portfolio", ico: "▤" },
-  { id: "goals", label: "Goals", ico: "◇" },
-  { id: "household", label: "Household", ico: "⌂" },
-  { id: "explore", label: "Explore", ico: "⇄" },
-  { id: "calculators", label: "Calculators", ico: "∑" },
-  { id: "data", label: "Data centre", ico: "⛁" },
-  { id: "settings", label: "Settings", ico: "⚙" },
+const NAV: Array<{ id: Route; label: string; ico: IconName }> = [
+  { id: "overview", label: "Overview", ico: "overview" },
+  { id: "portfolio", label: "Portfolio", ico: "portfolio" },
+  { id: "goals", label: "Goals", ico: "goals" },
+  { id: "household", label: "Household", ico: "household" },
+  { id: "explore", label: "Explore", ico: "explore" },
+  { id: "calculators", label: "Calculators", ico: "calculators" },
+  { id: "data", label: "Data centre", ico: "data" },
+  { id: "settings", label: "Settings", ico: "settings" },
 ];
 
 function routeFromHash(): Route {
@@ -89,7 +90,7 @@ function Shell() {
         </div>
         {NAV.map((n) => (
           <button key={n.id} className={`navlink ${route === n.id ? "active" : ""}`} onClick={() => go(n.id)} aria-current={route === n.id ? "page" : undefined}>
-            <span className="ico" aria-hidden>{n.ico}</span>
+            <span className="ico" aria-hidden><Icon name={n.ico} size={19} /></span>
             {n.label}
           </button>
         ))}
@@ -108,7 +109,7 @@ function Shell() {
       <nav className="mobile-nav" aria-label="Primary">
         {NAV.filter((n) => n.id !== "settings" && n.id !== "data").map((n) => (
           <button key={n.id} className={`navlink ${route === n.id ? "active" : ""}`} onClick={() => go(n.id)}>
-            <span className="ico" aria-hidden>{n.ico}</span>
+            <span className="ico" aria-hidden><Icon name={n.ico} size={20} /></span>
             {n.label}
           </button>
         ))}

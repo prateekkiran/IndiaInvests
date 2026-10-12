@@ -8,7 +8,9 @@ decisions could affect future goals.**
 - Encrypted on-device vault (Web Crypto AES-GCM + PBKDF2), encrypted backup/restore.
 - Installable PWA (works offline after first load).
 - Deterministic, unit-tested calculation engine (PRD formulas F01–F13 + every golden fixture).
-- Free to host on Netlify (static site).
+- Free to host on GitHub Pages (static site, no credit system).
+
+Live: https://prateekkiran.github.io/IndiaInvests/
 
 ## Run it
 
@@ -19,16 +21,20 @@ npm test          # optional — proves the engine against the PRD's golden fixt
 npm run dev       # local dev at http://localhost:5173
 ```
 
-## Build + deploy to Netlify (free)
+## Build + deploy to GitHub Pages (free, no credits)
+
+Deployment is fully automated by GitHub Actions (`.github/workflows/deploy.yml`): every
+`git push` to `main` runs the engine tests, builds, and publishes to GitHub Pages. No
+tokens, no Netlify credits — GitHub Pages is free on public repos with unlimited Actions
+minutes.
 
 ```bash
-npm run build                              # outputs ./dist
-netlify deploy --prod --dir=dist           # first run prompts login + "create new site"
+git add -A && git commit -m "…" && git push    # that's it — Actions builds & deploys
 ```
 
-(`netlify.toml` already sets the build command, publish dir, SPA redirect and a tight
-Content-Security-Policy. If you prefer Git-based deploys, push this folder to a repo and
-"Import from Git" in Netlify — it will pick up `netlify.toml` automatically.)
+Local production build (optional): `npm run build` outputs `./dist`. Vite `base` is set to
+`/IndiaInvests/` to match the Pages project sub-path, and the app uses hash routing so deep
+links work without any SPA redirect config.
 
 ## What's built (P0)
 
@@ -54,7 +60,7 @@ aggregation). Run `npm test`.
 Resolving the PRD's open questions (A01–A08 and §18):
 
 1. **Audience** — adult Indian resident retail investors; INR, Indian digit grouping, FY (1 Apr–31 Mar), dates like "11 Oct 2026".
-2. **Architecture** — responsive PWA, local processing, IndexedDB-backed encrypted vault. No server, so no hosting cost beyond Netlify's free static tier.
+2. **Architecture** — responsive PWA, local processing, IndexedDB-backed encrypted vault. No server, so no hosting cost beyond GitHub Pages' free static tier.
 3. **No API** — strictly no runtime third-party calls. Valuations come from your statements and prices you enter; nothing is fetched automatically.
 4. **First asset class** — mutual funds (CAS + generic CSV); other assets supported manually with a value date & basis.
 5. **Advice posture** — self-directed educational planning only. No "best fund" scores, no buy/sell recommendations, no suitability scoring. Projections are explicitly pre-tax and labelled "assumed", never "guaranteed".

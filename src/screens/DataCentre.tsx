@@ -5,6 +5,7 @@ import { portfolioSummary } from "../store/portfolio";
 import { formatINR } from "../engine/money";
 import { fmtDate } from "../util";
 import { CountUp, Reveal } from "../anim/components";
+import { openPlanReport } from "../report/planReport";
 
 export function DataCentre() {
   const { state, dispatch, encrypted, exportBackup, importBackup, markBackupNow, wipe } = useApp();
@@ -56,6 +57,12 @@ export function DataCentre() {
     setMsg("CSV ledger exported.");
   }
 
+  function openReport() {
+    const ok = openPlanReport(state);
+    if (!ok) setErr("Your browser blocked the report window. Allow pop-ups for this site, then try again.");
+    else setMsg("Plan report opened in a new tab — use its “Save as PDF / Print” button.");
+  }
+
   return (
     <div>
       <PageHead title="Data centre">
@@ -81,7 +88,7 @@ export function DataCentre() {
           <h3>Reports</h3>
           <div className="row">
             <Button size="sm" onClick={exportLedgerCsv}>Export CSV ledger</Button>
-            <Button size="sm" onClick={() => window.print()}>Print plan summary</Button>
+            <Button size="sm" variant="primary" onClick={openReport}>Export plan PDF</Button>
           </div>
         </Card>
 
