@@ -76,17 +76,7 @@ function dedicatedAt(g: HouseholdGoalInput, month1Based: number): number {
   return stepUpContribution(base, g.dedicatedStepUp ?? 0, month1Based);
 }
 
-/** Independent funded value for one goal (opening + dedicated streams only, grown to target). */
-function independentFunded(g: HouseholdGoalInput): number {
-  const i = monthlyRateFromAnnual(g.annualReturn);
-  let bal = g.openingBalance;
-  for (let t = 1; t <= g.targetMonth; t++) {
-    bal = bal * (1 + i) + dedicatedAt(g, t);
-  }
-  return bal;
-}
-
-export function simulateHousehold(input: HouseholdSimInput): HouseholdResult {
+export function simulateHousehold(input: HouseholdSimInput, computeIndependent = true): HouseholdResult {
   const order = [...input.goals].sort((a, b) => a.priority - b.priority || a.targetMonth - b.targetMonth);
   const horizon = input.goals.reduce((m, g) => Math.max(m, g.targetMonth), 0);
 
@@ -186,6 +176,14 @@ export function simulateHousehold(input: HouseholdSimInput): HouseholdResult {
 
   function makeResult(g: HouseholdGoalInput, funded: number, sharedTot: number, dedTot: number): HouseholdGoalResult {
     const shortfall = Math.max(0, g.futureTarget - funded);
+    // "If planned alone" = this goal simulated as the ONLY claimant on the full
+    // shared budget (plus its own opening + dedicated stream). The guard flag
+    // prevents infinite recursion (the solo run skips this computation).
+    let independent = funded;
+    if (computeIndependent) {
+      const solo = simulateHousehold({ ...input, goals: [g] }, false);
+      independent = solo.goals[0]?.funded ?? funded;
+    }
     return {
       id: g.id,
       label: g.label,
@@ -197,7 +195,7 @@ export function simulateHousehold(input: HouseholdSimInput): HouseholdResult {
       fundedPct: g.futureTarget > 0 ? funded / g.futureTarget : 1,
       sharedContributed: sharedTot,
       dedicatedContributed: dedTot,
-      independentFunded: independentFunded(g),
+      independentFunded: independent,
     };
   }
 }
