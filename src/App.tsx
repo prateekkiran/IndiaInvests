@@ -13,6 +13,7 @@ import { Settings } from "./screens/Settings";
 import { VaultGate } from "./screens/VaultGate";
 import { Icon, IconName } from "./components/Icon";
 import { DemoBanner } from "./demo/DemoUI";
+import { InstallPrompt } from "./components/InstallPrompt";
 
 type Route = "overview" | "portfolio" | "goals" | "household" | "explore" | "calculators" | "data" | "settings";
 
@@ -35,7 +36,7 @@ function routeFromHash(): Route {
 function Shell() {
   const { vaultStatus } = useApp();
   const [route, setRoute] = useState<Route>(routeFromHash());
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ function Shell() {
 
   return (
     <div className="app-shell">
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <nav className="sidebar" aria-label="Primary" ref={navRef as any}>
         <div className="brand">
           <div className="brand-mark" aria-hidden />
@@ -105,7 +107,7 @@ function Shell() {
 
       <div className="main">
         <DemoBanner />
-        <div className="content" ref={contentRef}>{screen}</div>
+        <main id="main-content" className="content" ref={contentRef} tabIndex={-1}>{screen}</main>
       </div>
 
       <nav className="mobile-nav" aria-label="Primary">
@@ -116,6 +118,7 @@ function Shell() {
           </button>
         ))}
       </nav>
+      <InstallPrompt />
     </div>
   );
 }

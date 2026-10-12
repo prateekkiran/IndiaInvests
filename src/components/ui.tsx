@@ -191,9 +191,50 @@ export function Sheet({ title, onClose, children, footer }: { title: string; onC
     const cancel = popIn(sheetRef.current, { from: 0.92, duration: 480 });
     return cancel;
   }, []);
+
+  // Accessibility: trap Tab focus within the dialog, close on Escape, and
+  // restore focus to whatever was focused before the sheet opened.
+  useEffect(() => {
+    const prevFocused = document.activeElement as HTMLElement | null;
+    const sheet = sheetRef.current;
+    const focusables = () =>
+      Array.from(
+        sheet?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    // Move focus into the sheet.
+    const first = focusables()[0];
+    first?.focus();
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const firstEl = items[0];
+      const lastEl = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      prevFocused?.focus?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div className="sheet-backdrop" ref={backdropRef} onClick={onClose}>
-      <div className="sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" ref={sheetRef} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="row between" style={{ marginBottom: 14 }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">✕</Button>

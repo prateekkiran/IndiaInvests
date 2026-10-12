@@ -1,8 +1,9 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useApp } from "../store/AppContext";
-import { Tabs, PageHead, Card, Button, Badge, Callout, NumberField, TextField, SelectField, EmptyState, Sheet } from "../components/ui";
+import { Tabs, PageHead, Card, Button, Badge, Callout, NumberField, TextField, SelectField, SliderField, EmptyState, Sheet } from "../components/ui";
 import { StorageSetup } from "../components/StorageSetup";
 import { currentHoldings, portfolioSummary, portfolioPerformance, valueHistory } from "../store/portfolio";
+import { timeWeightedReturn, hypotheticalBenchmark } from "../store/returns";
 import { parseCsvFile, downloadTemplate, CsvTemplate, CsvPreview } from "../import/csv";
 import { parseCasPdf, CasResult } from "../import/cas";
 import { parseNavPackage, NavPackageResult, downloadSampleNavPackage } from "../import/navpackage";
@@ -142,7 +143,12 @@ function TransactionsTab() {
 function PerformanceTab() {
   const { state } = useApp();
   const perf = portfolioPerformance(state);
+  const twr = timeWeightedReturn(state);
+  const [benchRate, setBenchRate] = useState(0.12);
+  const terminal = perf.available ? state.prices.reduce((mx, p) => (p.date > mx ? p.date : mx), "0000-00-00") : null;
+  const bench = perf.available && terminal ? hypotheticalBenchmark(state, benchRate, perf.currentValue ?? null, terminal) : null;
   return (
+    <div className="stack">
     <Card>
       <h3>Performance</h3>
       {!perf.available ? (
@@ -165,12 +171,48 @@ function PerformanceTab() {
             </table>
           </div>
           {perf.note && <div style={{ marginTop: 12 }}><Callout tone="warn">{perf.note}</Callout></div>}
-          <div style={{ marginTop: 12 }}><Callout tone="info">XIRR is a cash-flow return and is not directly comparable to an index CAGR. Benchmarks on an aligned basis arrive in a later release.</Callout></div>
+          <div style={{ marginTop: 12 }}><Callout tone="info">XIRR is a cash-flow (money-weighted) return — it reflects both the investments and the timing of your contributions.</Callout></div>
         </>
       ) : (
         <Callout tone="warn">{perf.xirr?.message}</Callout>
       )}
     </Card>
+
+    {/* Time-weighted return — a different, complementary measure. */}
+    <Card>
+      <h3>Time-weighted return</h3>
+      {twr.status === "insufficient" ? (
+        <Callout tone="info">{twr.message}</Callout>
+      ) : (
+        <>
+          <div className="grid cols-3" style={{ marginTop: 8 }}>
+            <div><div className="stat-label">TWR (cumulative)</div><div className="stat-value">{formatPercent(twr.cumulative!)}</div></div>
+            <div><div className="stat-label">TWR (annualised)</div><div className="stat-value" style={{ fontSize: "1.3rem" }}>{twr.annualized != null ? formatPercent(twr.annualized) : "—"}</div></div>
+            <div><div className="stat-label">Priced span</div><div className="stat-value" style={{ fontSize: "1.3rem" }}>{Math.round(twr.elapsedDays / 30)} mo</div></div>
+          </div>
+          <div style={{ marginTop: 12 }}><Callout tone="info">TWR measures how the <strong>investments themselves</strong> performed, stripping out the effect of when you contributed. That's why it differs from XIRR — the two answer different questions and shouldn't be compared one-to-one.</Callout></div>
+        </>
+      )}
+    </Card>
+
+    {/* Clearly-labelled hypothetical benchmark. */}
+    {bench && (
+      <Card>
+        <h3>Hypothetical benchmark</h3>
+        <p className="soft">What if the exact same contributions had instead grown at a steady rate? This is an illustrative constant-rate “what if”, <strong>not a real index</strong> — the app fetches no market data.</p>
+        <div style={{ maxWidth: 280 }}>
+          <SliderField label="Assumed benchmark return" value={benchRate} min={0} max={0.2} step={0.005} onChange={setBenchRate} format={(v) => formatPercent(v)} />
+        </div>
+        <table className="data" style={{ marginTop: 6 }}>
+          <tbody>
+            <tr><td>Your contributions, grown at {formatPercent(benchRate)}</td><td className="num">{formatINR(bench.investorFinalIfBenchmarked)}</td></tr>
+            <tr><td>Your portfolio now</td><td className="num">{formatINR(bench.portfolioCurrentValue ?? 0)}</td></tr>
+            <tr><td><strong>Difference</strong></td><td className="num"><strong style={{ color: (bench.difference ?? 0) >= 0 ? "var(--green-600)" : "var(--amber-600)" }}>{(bench.difference ?? 0) >= 0 ? "+" : ""}{formatINR(bench.difference ?? 0)}</strong></td></tr>
+          </tbody>
+        </table>
+      </Card>
+    )}
+    </div>
   );
 }
 

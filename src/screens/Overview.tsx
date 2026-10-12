@@ -10,6 +10,8 @@ import { AssetClass } from "../types";
 import { CountUp, Reveal, AnimatedBar } from "../anim/components";
 import { floatLoop, popIn, revealStagger, prefersReduced } from "../anim/motion";
 import { DemoTip } from "../demo/DemoUI";
+import { buildInsights } from "../engine/insights";
+import { Icon } from "../components/Icon";
 
 const CLASS_LABEL: Record<AssetClass, string> = {
   equity_mf: "Equity funds", debt_mf: "Debt funds", hybrid_mf: "Hybrid funds", other_mf: "Other funds",
@@ -108,6 +110,7 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
 
   const alloc = summary.byAssetClass.map((a) => ({ label: CLASS_LABEL[a.assetClass], value: a.value }));
   const goalsWithCalc = state.goals.map((g) => ({ goal: g, calc: computeGoal(state, g) }));
+  const insights = buildInsights(state);
 
   return (
     <div>
@@ -165,6 +168,26 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
           </Card>
         </Reveal>
       </div>
+
+      {insights.length > 0 && (
+        <Reveal delay={60}>
+          <Card style={{ marginTop: 16 }}>
+            <div className="row" style={{ gap: 8, marginBottom: 10, alignItems: "center" }}>
+              <span style={{ color: "var(--indigo-600)", display: "inline-flex" }}><Icon name="sparkle" size={18} /></span>
+              <h3 style={{ margin: 0 }}>Insights</h3>
+            </div>
+            <div className="stack" style={{ gap: 8 }}>
+              {insights.map((ins) => (
+                <div key={ins.id} className="insight-row">
+                  <span className={`insight-dot ${ins.tone}`} aria-hidden />
+                  <span style={{ fontSize: "0.9rem" }}>{ins.text}</span>
+                </div>
+              ))}
+            </div>
+            <p className="muted" style={{ fontSize: "0.76rem", marginTop: 10 }}>Observations from your own data — factual, not advice.</p>
+          </Card>
+        </Reveal>
+      )}
 
       <div style={{ marginTop: 16 }}>
         <div className="row between" style={{ marginBottom: 12 }}>
