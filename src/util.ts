@@ -60,6 +60,37 @@ export function addMonthsISO(iso: string, months: number): string {
  * shim lacks `subtle`. Dedupe only needs stability, not cryptographic strength.
  */
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
+  return sha256HexImpl(buf);
+}
+
+/**
+ * Read a File/Blob as an ArrayBuffer, tolerant of environments where the
+ * standard `Blob.arrayBuffer()` is missing (older browsers, and the jsdom test
+ * runner). Falls back to `.text()` then `FileReader`. Real browsers take the
+ * first branch, so behaviour there is unchanged.
+ */
+export async function readFileBytes(file: Blob): Promise<ArrayBuffer> {
+  const anyFile = file as any;
+  if (typeof anyFile.arrayBuffer === "function") {
+    return await anyFile.arrayBuffer();
+  }
+  if (typeof anyFile.text === "function") {
+    const text = await anyFile.text();
+    return new TextEncoder().encode(text).buffer;
+  }
+  return await new Promise<ArrayBuffer>((resolve, reject) => {
+    try {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result as ArrayBuffer);
+      fr.onerror = () => reject(fr.error ?? new Error("FileReader failed"));
+      fr.readAsArrayBuffer(file);
+    } catch (e) {
+      reject(e as Error);
+    }
+  });
+}
+
+async function sha256HexImpl(buf: ArrayBuffer): Promise<string> {
   try {
     if (typeof crypto !== "undefined" && crypto.subtle && typeof crypto.subtle.digest === "function") {
       const digest = await crypto.subtle.digest("SHA-256", buf);

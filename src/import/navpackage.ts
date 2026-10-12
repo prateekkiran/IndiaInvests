@@ -14,7 +14,7 @@
 
 import { AppState, PriceObservation, Instrument } from "../types";
 import { CommitImportPayload } from "../store/state";
-import { uid, sha256Hex } from "../util";
+import { uid, sha256Hex, readFileBytes } from "../util";
 
 export const NAV_PACKAGE_FORMAT = "iij-nav-package";
 export const NAV_PACKAGE_VERSION = 1;
@@ -76,7 +76,7 @@ function matchInstrument(state: AppState, created: Instrument[], s: NavPackageSe
 
 export async function parseNavPackage(file: File, state: AppState): Promise<NavPackageResult> {
   let obj: any;
-  const buf = await file.arrayBuffer();
+  const buf = await readFileBytes(file);
   const fileHash = await sha256Hex(buf.slice(0));
   const duplicateFile = state.importBatches.some((b) => b.fileHash === fileHash && b.status === "committed");
   try {

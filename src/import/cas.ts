@@ -16,7 +16,7 @@ import {
   TxnType,
 } from "../types";
 import { CommitImportPayload } from "../store/state";
-import { uid, maskNumber, sha256Hex } from "../util";
+import { uid, maskNumber, sha256Hex, readFileBytes } from "../util";
 import { parseAmount } from "../engine/money";
 import { isoDate } from "./csv";
 
@@ -95,7 +95,7 @@ export async function parseCasPdf(
   state: AppState,
   ownerId = "owner_self"
 ): Promise<CasResult> {
-  const buf = await file.arrayBuffer();
+  const buf = await readFileBytes(file);
   const fileHash = await sha256Hex(buf.slice(0));
   const duplicateFile = state.importBatches.some((b) => b.fileHash === fileHash && b.status === "committed");
 

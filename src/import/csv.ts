@@ -17,7 +17,7 @@ import {
   ReconciliationIssue,
 } from "../types";
 import { CommitImportPayload } from "../store/state";
-import { uid, maskNumber, sha256Hex, todayISO } from "../util";
+import { uid, maskNumber, sha256Hex, todayISO, readFileBytes } from "../util";
 import { parseAmount } from "../engine/money";
 import { BrokerAdapter, detectBroker } from "./brokers";
 
@@ -101,7 +101,7 @@ export async function parseCsvFile(
   ownerId = "owner_self",
   adapter?: BrokerAdapter
 ): Promise<CsvPreview> {
-  const buf = await file.arrayBuffer();
+  const buf = await readFileBytes(file);
   const fileHash = await sha256Hex(buf);
   const text = new TextDecoder().decode(buf);
   const duplicateFile = state.importBatches.some((b) => b.fileHash === fileHash && b.status === "committed");
