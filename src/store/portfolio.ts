@@ -267,3 +267,82 @@ export function portfolioPerformance(state: AppState): PerformanceResult {
       : undefined,
   };
 }
+
+// ---------------------------------------------------------------------------
+// POR03 — observed value history. We plot ONLY dated points supported by real
+// holdings and real prices, and mark a point "complete" only when every
+// instrument that has units on that date also has a known NAV as of that date.
+// We never interpolate a smooth curve from the current balance.
+// ---------------------------------------------------------------------------
+
+export interface ValueHistoryPoint {
+  date: string;
+  value: number;
+  complete: boolean;
+  pricedInstruments: number;
+  heldInstruments: number;
+}
+
+export interface ValueHistory {
+  points: ValueHistoryPoint[];
+  completePoints: ValueHistoryPoint[];
+  note: string;
+}
+
+export function valueHistory(state: AppState): ValueHistory {
+  // Instruments with real transaction history (units evolve over time).
+  const heldInstrumentIds = new Set(
+    state.transactions.filter((t) => !t.reversed).map((t) => t.instrumentId)
+  );
+  if (heldInstrumentIds.size === 0) {
+    return { points: [], completePoints: [], note: "No dated transactions yet — value history needs holdings that change over time." };
+  }
+
+  // Candidate dates = every price date for a held instrument (observed points).
+  const dates = [
+    ...new Set(
+      state.prices
+        .filter((p) => heldInstrumentIds.has(p.instrumentId))
+        .map((p) => p.date)
+    ),
+  ].sort();
+
+  if (dates.length === 0) {
+    return { points: [], completePoints: [], note: "No dated NAVs yet — import a NAV-history package or prices to see value over time." };
+  }
+
+  const unitsAsOf = (instrumentId: string, d: string): number =>
+    state.transactions
+      .filter((t) => !t.reversed && t.instrumentId === instrumentId && t.eventDate <= d)
+      .reduce((acc, t) => acc + (t.unitsDelta || 0), 0);
+
+  const points: ValueHistoryPoint[] = [];
+  for (const d of dates) {
+    let value = 0;
+    let priced = 0;
+    let held = 0;
+    for (const instrumentId of heldInstrumentIds) {
+      const units = unitsAsOf(instrumentId, d);
+      if (units <= 1e-9) continue;
+      held++;
+      const p = latestPrice(state, instrumentId, d);
+      if (p) {
+        value += units * p.price;
+        priced++;
+      }
+    }
+    if (held > 0) {
+      points.push({ date: d, value, complete: priced === held, pricedInstruments: priced, heldInstruments: held });
+    }
+  }
+
+  const completePoints = points.filter((p) => p.complete);
+  const note =
+    completePoints.length === 0
+      ? "Not enough overlapping NAVs yet to plot a fully-covered value history."
+      : completePoints.length < points.length
+        ? `${completePoints.length} of ${points.length} observed dates have full price coverage; partially-covered dates are omitted from the line.`
+        : `${completePoints.length} fully-covered observed point(s).`;
+
+  return { points, completePoints, note };
+}

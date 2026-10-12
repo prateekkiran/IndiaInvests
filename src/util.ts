@@ -53,10 +53,29 @@ export function addMonthsISO(iso: string, months: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** SHA-256 hex of an ArrayBuffer (used for file-level dedupe). */
+/**
+ * SHA-256 hex of an ArrayBuffer (used for file-level dedupe). Falls back to a
+ * fast non-cryptographic hash (FNV-1a) when the Web Crypto subtle API is
+ * unavailable — e.g. a non-secure context or a test environment whose `crypto`
+ * shim lacks `subtle`. Dedupe only needs stability, not cryptographic strength.
+ */
 export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", buf);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  try {
+    if (typeof crypto !== "undefined" && crypto.subtle && typeof crypto.subtle.digest === "function") {
+      const digest = await crypto.subtle.digest("SHA-256", buf);
+      return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+  } catch {
+    /* fall through to FNV-1a */
+  }
+  const bytes = new Uint8Array(buf);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i];
+    h = Math.imul(h, 0x01000193);
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0");
+  return `fnv1a-${hex}-${bytes.length}`;
 }
 
 /** Mask a folio/account number, preserving leading zeros as a string. */

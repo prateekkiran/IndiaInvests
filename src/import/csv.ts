@@ -19,6 +19,7 @@ import {
 import { CommitImportPayload } from "../store/state";
 import { uid, maskNumber, sha256Hex, todayISO } from "../util";
 import { parseAmount } from "../engine/money";
+import { BrokerAdapter, detectBroker } from "./brokers";
 
 export const CSV_PARSER_VERSION = "csv-1.0.0";
 
@@ -34,6 +35,7 @@ export interface CsvPreview {
   payload: CommitImportPayload;
   sampleRows: Record<string, string>[];
   duplicateFile: boolean;
+  detectedBroker?: string;
 }
 
 const norm = (s: string) => s.trim().toLowerCase().replace(/[\s_]+/g, "");
@@ -96,7 +98,8 @@ export async function parseCsvFile(
   file: File,
   template: CsvTemplate,
   state: AppState,
-  ownerId = "owner_self"
+  ownerId = "owner_self",
+  adapter?: BrokerAdapter
 ): Promise<CsvPreview> {
   const buf = await file.arrayBuffer();
   const fileHash = await sha256Hex(buf);
@@ -110,12 +113,18 @@ export async function parseCsvFile(
   });
   const rows = (parsed.data || []).filter((r) => r && Object.keys(r).length);
 
+  // Auto-detect a broker layout for transaction imports when none was supplied.
+  const headers = parsed.meta?.fields ?? (rows[0] ? Object.keys(rows[0]) : []);
+  const activeAdapter = adapter ?? (template === "transactions" ? detectBroker(headers).adapter ?? undefined : undefined);
+  const al = (field: keyof NonNullable<BrokerAdapter["aliases"]>, defaults: string[]): string[] =>
+    activeAdapter?.aliases?.[field] ? [...(activeAdapter.aliases[field] as string[]), ...defaults] : defaults;
+
   const batchId = uid("batch");
   const batch: ImportBatch = {
     id: batchId,
     fileName: file.name,
     fileHash,
-    sourceType: "generic_csv",
+    sourceType: activeAdapter ? `broker_${activeAdapter.id}` : "generic_csv",
     parserVersion: CSV_PARSER_VERSION,
     committedAt: new Date().toISOString(),
     status: "committed",
@@ -171,20 +180,22 @@ export async function parseCsvFile(
     const line = idx + 2; // header is line 1
     try {
       if (template === "transactions") {
-        const date = pick(row, ["date", "transactiondate", "txndate"]);
-        const typeRaw = pick(row, ["type", "transactiontype", "txntype", "description"]);
-        const folio = pick(row, ["folio", "account", "accountnumber", "folionumber"]) ?? "UNSPECIFIED";
-        const scheme = pick(row, ["scheme", "instrument", "fund", "schemename"]);
-        const isin = pick(row, ["isin"]);
-        const units = parseAmount(pick(row, ["units", "quantity", "qty"]));
-        const amount = parseAmount(pick(row, ["amount", "value", "grossamount"]));
-        const nav = parseAmount(pick(row, ["nav", "price"]));
-        const charges = parseAmount(pick(row, ["charges", "fees", "stt"]));
+        const date = pick(row, al("date", ["date", "transactiondate", "txndate"]));
+        const typeRaw = pick(row, al("type", ["type", "transactiontype", "txntype", "description"]));
+        const folio = pick(row, al("folio", ["folio", "account", "accountnumber", "folionumber"])) ?? "UNSPECIFIED";
+        const scheme = pick(row, al("scheme", ["scheme", "instrument", "fund", "schemename"]));
+        const isin = pick(row, al("isin", ["isin"]));
+        const units = parseAmount(pick(row, al("units", ["units", "quantity", "qty"])));
+        const amount = parseAmount(pick(row, al("amount", ["amount", "value", "grossamount"])));
+        const nav = parseAmount(pick(row, al("nav", ["nav", "price"])));
+        const charges = parseAmount(pick(row, al("charges", ["charges", "fees", "stt"])));
         if (!date || !scheme || !typeRaw) {
           issues.push(rowIssue(line, "Missing date, scheme or type."));
           return;
         }
-        const sign = TXN_SIGN[norm(typeRaw)] ?? { units: +1, cash: -1, type: "unknown" as TxnType };
+        const sign =
+          (activeAdapter?.typeMap && activeAdapter.typeMap[norm(typeRaw)]) ??
+          TXN_SIGN[norm(typeRaw)] ?? { units: +1, cash: -1, type: "unknown" as TxnType };
         const inst = ensureInstrument(scheme, isin);
         const acct = ensureAccount(folio);
         const t: Transaction = {
@@ -290,6 +301,15 @@ export async function parseCsvFile(
   });
 
   payload.issues = issues;
+  if (activeAdapter) {
+    issues.unshift({
+      id: uid("issue"),
+      rule: "broker_detected",
+      severity: "info",
+      message: `Detected ${activeAdapter.label} layout — columns were mapped automatically. Review the preview before committing.`,
+      resolved: false,
+    });
+  }
   batch.summary = `${accepted} row(s) accepted, ${issues.filter((i) => i.severity !== "info").length} issue(s).`;
 
   return {
@@ -302,6 +322,7 @@ export async function parseCsvFile(
     payload,
     sampleRows: rows.slice(0, 5),
     duplicateFile,
+    detectedBroker: activeAdapter?.label,
   };
 }
 

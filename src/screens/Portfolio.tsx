@@ -2,9 +2,10 @@ import React, { useMemo, useRef, useState } from "react";
 import { useApp } from "../store/AppContext";
 import { Tabs, PageHead, Card, Button, Badge, Callout, NumberField, TextField, SelectField, EmptyState, Sheet } from "../components/ui";
 import { StorageSetup } from "../components/StorageSetup";
-import { currentHoldings, portfolioSummary, portfolioPerformance } from "../store/portfolio";
+import { currentHoldings, portfolioSummary, portfolioPerformance, valueHistory } from "../store/portfolio";
 import { parseCsvFile, downloadTemplate, CsvTemplate, CsvPreview } from "../import/csv";
 import { parseCasPdf, CasResult } from "../import/cas";
+import { parseNavPackage, NavPackageResult, downloadSampleNavPackage } from "../import/navpackage";
 import { formatINR, formatINRCompact, formatPercent, groupIndian } from "../engine/money";
 import { fmtDate, uid, todayISO } from "../util";
 import { AssetClass, ManualAsset, ManualLiability } from "../types";
@@ -24,6 +25,7 @@ export function Portfolio() {
     { id: "holdings", label: "Holdings" },
     { id: "transactions", label: "Transactions" },
     { id: "performance", label: "Performance" },
+    { id: "history", label: "Value history" },
     { id: "import", label: "Import" },
     { id: "manual", label: "Manual assets" },
   ];
@@ -47,6 +49,7 @@ export function Portfolio() {
       {tab === "holdings" && <HoldingsTab />}
       {tab === "transactions" && <TransactionsTab />}
       {tab === "performance" && <PerformanceTab />}
+      {tab === "history" && <HistoryTab />}
       {tab === "import" && <ImportTab onNeedStorage={() => setShowStorage(true)} />}
       {tab === "manual" && <ManualTab />}
 
@@ -167,6 +170,72 @@ function PerformanceTab() {
   );
 }
 
+function HistoryTab() {
+  const { state } = useApp();
+  const vh = valueHistory(state);
+  const pts = vh.completePoints;
+
+  if (pts.length < 2) {
+    return (
+      <Card>
+        <h3>Value history</h3>
+        <Callout tone="info">{vh.note} Import a NAV-history package (Import tab) covering your held instruments to plot actual value over time. We only draw observed points — never a smooth curve guessed from today's balance.</Callout>
+      </Card>
+    );
+  }
+
+  const W = 760, H = 280, padL = 64, padR = 16, padB = 30, padT = 14;
+  const maxV = Math.max(...pts.map((p) => p.value), 1);
+  const minT = new Date(pts[0].date + "T00:00:00").getTime();
+  const maxT = new Date(pts[pts.length - 1].date + "T00:00:00").getTime();
+  const span = Math.max(1, maxT - minT);
+  const x = (d: string) => padL + ((new Date(d + "T00:00:00").getTime() - minT) / span) * (W - padL - padR);
+  const y = (v: number) => padT + (1 - v / maxV) * (H - padT - padB);
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${x(p.date)} ${y(p.value)}`).join(" ");
+  const ticks = 4;
+
+  return (
+    <div className="stack">
+      <Card>
+        <div className="row between">
+          <h3 style={{ margin: 0 }}>Value history</h3>
+          <Badge tone="teal">{pts.length} observed point(s)</Badge>
+        </div>
+        <p className="soft">Actual portfolio value on dates where every held instrument has a known NAV. Gaps are left where coverage is incomplete — nothing is interpolated.</p>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label="Observed portfolio value over time">
+          {Array.from({ length: ticks + 1 }, (_, k) => (maxV * k) / ticks).map((tv, k) => (
+            <g key={k}>
+              <line x1={padL} x2={W - padR} y1={y(tv)} y2={y(tv)} stroke="var(--border)" strokeWidth={1} />
+              <text x={padL - 8} y={y(tv) + 4} textAnchor="end" fontSize="11" fill="var(--text-faint)">{formatINRCompact(tv)}</text>
+            </g>
+          ))}
+          <path d={line} fill="none" stroke="var(--indigo-600)" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          {pts.map((p, i) => <circle key={i} cx={x(p.date)} cy={y(p.value)} r={3.2} fill="var(--indigo-600)" />)}
+          <text x={padL} y={H - 8} textAnchor="start" fontSize="11" fill="var(--text-faint)">{fmtDate(pts[0].date)}</text>
+          <text x={W - padR} y={H - 8} textAnchor="end" fontSize="11" fill="var(--text-faint)">{fmtDate(pts[pts.length - 1].date)}</text>
+        </svg>
+        {vh.completePoints.length < vh.points.length && <div style={{ marginTop: 8 }}><Callout tone="warn">{vh.note}</Callout></div>}
+      </Card>
+      <Card>
+        <div className="table-scroll">
+          <table className="data">
+            <thead><tr><th>Date</th><th className="num">Value</th><th className="num">Coverage</th></tr></thead>
+            <tbody>
+              {[...vh.points].reverse().map((p, i) => (
+                <tr key={i}>
+                  <td>{fmtDate(p.date)}</td>
+                  <td className="num">{p.complete ? formatINR(p.value) : <span className="soft">{formatINR(p.value)}</span>}</td>
+                  <td className="num">{p.complete ? <Badge tone="green">full</Badge> : <Badge tone="amber">{p.pricedInstruments}/{p.heldInstruments}</Badge>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function ImportTab({ onNeedStorage }: { onNeedStorage: () => void }) {
   const { state, dispatch, vaultStatus } = useApp();
   const [csvPreview, setCsvPreview] = useState<CsvPreview | null>(null);
@@ -176,6 +245,8 @@ function ImportTab({ onNeedStorage }: { onNeedStorage: () => void }) {
   const [busy, setBusy] = useState(false);
   const csvInput = useRef<HTMLInputElement>(null);
   const [template, setTemplate] = useState<CsvTemplate>("transactions");
+  const [navResult, setNavResult] = useState<NavPackageResult | null>(null);
+  const navInput = useRef<HTMLInputElement>(null);
 
   async function onCsv(file: File) {
     setBusy(true);
@@ -203,6 +274,22 @@ function ImportTab({ onNeedStorage }: { onNeedStorage: () => void }) {
     } finally { setBusy(false); }
   }
 
+  async function onNavPackage(file: File) {
+    setBusy(true);
+    try {
+      const res = await parseNavPackage(file, state);
+      setNavResult(res);
+    } finally { setBusy(false); }
+  }
+
+  function commitNav() {
+    if (navResult?.ok && navResult.payload) {
+      dispatch({ type: "COMMIT_IMPORT", payload: navResult.payload });
+      setNavResult(null);
+      if (vaultStatus === "none") onNeedStorage();
+    }
+  }
+
   function commitCas() {
     if (casResult?.payload) {
       dispatch({ type: "COMMIT_IMPORT", payload: casResult.payload });
@@ -224,14 +311,23 @@ function ImportTab({ onNeedStorage }: { onNeedStorage: () => void }) {
   return (
     <div className="grid cols-2" style={{ alignItems: "start" }}>
       <Card>
-        <h3>Generic CSV</h3>
-        <p className="soft">Download a template, fill it in from any provider's export, and import. Dates, decimals and signs are validated and previewed.</p>
+        <h3>CSV import</h3>
+        <p className="soft">Download a template, or just drop in a broker export — <strong>Zerodha Coin, Groww, Kuvera and MF Central</strong> transaction CSVs are auto-detected and their columns mapped for you. Dates, decimals and signs are validated and previewed before anything commits.</p>
         <SelectField<CsvTemplate> label="Template" value={template} onChange={setTemplate}
           options={[{ value: "transactions", label: "Transactions" }, { value: "holdings", label: "Holdings snapshot" }, { value: "prices", label: "Prices / NAV" }, { value: "manual_assets", label: "Manual assets" }]} />
         <div className="row">
           <Button size="sm" onClick={() => downloadTemplate(template)}>Download template</Button>
           <Button size="sm" variant="primary" onClick={() => csvInput.current?.click()} disabled={busy}>Choose CSV file</Button>
           <input ref={csvInput} type="file" accept=".csv,text/csv" hidden onChange={(e) => e.target.files?.[0] && onCsv(e.target.files[0])} />
+        </div>
+
+        <hr className="hr" />
+        <h3>NAV-history package</h3>
+        <p className="soft">A governed offline JSON file of dated NAVs you keep yourself — no network fetch. Importing it adds price history (stamped with its source and effective dates) so <span className="kbd">Value history</span> can plot actual value over time.</p>
+        <div className="row">
+          <Button size="sm" onClick={downloadSampleNavPackage}>Download sample package</Button>
+          <Button size="sm" variant="primary" onClick={() => navInput.current?.click()} disabled={busy}>Choose NAV package</Button>
+          <input ref={navInput} type="file" accept="application/json,.json" hidden onChange={(e) => e.target.files?.[0] && onNavPackage(e.target.files[0])} />
         </div>
 
         <hr className="hr" />
@@ -254,6 +350,7 @@ function ImportTab({ onNeedStorage }: { onNeedStorage: () => void }) {
         {csvPreview && (
           <Card>
             <h3>Import preview — {csvPreview.fileName}</h3>
+            {csvPreview.detectedBroker && <div style={{ marginBottom: 8 }}><Badge tone="indigo">Detected: {csvPreview.detectedBroker}</Badge></div>}
             {csvPreview.duplicateFile && <Callout tone="warn">This exact file was already imported; committing again will add duplicate entries. Importing the same file normally changes nothing.</Callout>}
             <p className="soft">{csvPreview.accepted} of {csvPreview.rowCount} row(s) accepted · {csvPreview.issues.length} issue(s).</p>
             {csvPreview.issues.slice(0, 6).map((iss) => (
@@ -286,7 +383,36 @@ function ImportTab({ onNeedStorage }: { onNeedStorage: () => void }) {
           </Card>
         )}
 
-        {!csvPreview && !casResult && !busy && (
+        {navResult && (
+          <Card>
+            <h3>NAV package {navResult.ok ? "preview" : "—"} </h3>
+            {navResult.ok ? (
+              <>
+                <div className="row" style={{ gap: 6, marginBottom: 8 }}>
+                  <Badge tone="indigo">{navResult.navPointCount} NAV point(s)</Badge>
+                  <Badge tone="neutral">{navResult.seriesCount} series</Badge>
+                  {navResult.matchedInstruments ? <Badge tone="teal">{navResult.matchedInstruments} matched</Badge> : null}
+                </div>
+                <p className="soft">Source: {navResult.source} · retrieved {navResult.retrievedDate ? fmtDate(navResult.retrievedDate) : "—"}</p>
+                {navResult.unmatchedSeries && navResult.unmatchedSeries.length > 0 && (
+                  <Callout tone="info">{navResult.unmatchedSeries.length} series didn't match an existing holding and were added as reference instruments (so their history is kept for when you import matching transactions).</Callout>
+                )}
+                {navResult.duplicateFile && <Callout tone="warn">This exact package file was imported before; only new NAV points will be added.</Callout>}
+                <div className="row" style={{ marginTop: 10 }}>
+                  <Button variant="primary" size="sm" onClick={commitNav}>Commit NAV history</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setNavResult(null)}>Cancel</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Callout tone="error">{navResult.error}</Callout>
+                <div className="row" style={{ marginTop: 10 }}><Button variant="ghost" size="sm" onClick={() => setNavResult(null)}>Dismiss</Button></div>
+              </>
+            )}
+          </Card>
+        )}
+
+        {!csvPreview && !casResult && !navResult && !busy && (
           <Card><EmptyState icon="⇪" title="Nothing staged">Choose a file to see a full preview before anything is committed.</EmptyState></Card>
         )}
       </div>
