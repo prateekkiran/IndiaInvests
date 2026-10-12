@@ -6,17 +6,19 @@ import { Overview } from "./screens/Overview";
 import { Calculators } from "./screens/Calculators";
 import { Portfolio } from "./screens/Portfolio";
 import { Goals } from "./screens/Goals";
+import { Household } from "./screens/Household";
 import { Explore } from "./screens/Explore";
 import { DataCentre } from "./screens/DataCentre";
 import { Settings } from "./screens/Settings";
 import { VaultGate } from "./screens/VaultGate";
 
-type Route = "overview" | "portfolio" | "goals" | "explore" | "calculators" | "data" | "settings";
+type Route = "overview" | "portfolio" | "goals" | "household" | "explore" | "calculators" | "data" | "settings";
 
 const NAV: Array<{ id: Route; label: string; ico: string }> = [
   { id: "overview", label: "Overview", ico: "◎" },
   { id: "portfolio", label: "Portfolio", ico: "▤" },
   { id: "goals", label: "Goals", ico: "◇" },
+  { id: "household", label: "Household", ico: "⌂" },
   { id: "explore", label: "Explore", ico: "⇄" },
   { id: "calculators", label: "Calculators", ico: "∑" },
   { id: "data", label: "Data centre", ico: "⛁" },
@@ -67,6 +69,7 @@ function Shell() {
       case "overview": return <Overview onNavigate={(r) => go(r as Route)} />;
       case "portfolio": return <Portfolio />;
       case "goals": return <Goals />;
+      case "household": return <Household />;
       case "explore": return <Explore />;
       case "calculators": return <Calculators />;
       case "data": return <DataCentre />;
@@ -103,7 +106,7 @@ function Shell() {
       </div>
 
       <nav className="mobile-nav" aria-label="Primary">
-        {NAV.filter((n) => n.id !== "settings").map((n) => (
+        {NAV.filter((n) => n.id !== "settings" && n.id !== "data").map((n) => (
           <button key={n.id} className={`navlink ${route === n.id ? "active" : ""}`} onClick={() => go(n.id)}>
             <span className="ico" aria-hidden>{n.ico}</span>
             {n.label}

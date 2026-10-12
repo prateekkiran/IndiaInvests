@@ -193,6 +193,24 @@ export interface Goal {
   contributionStreamIds: string[];
 }
 
+// ---- Household & life-event planning (PRD GOAL04) ----
+
+export interface LifeEvent {
+  id: string;
+  label: string;
+  date: string; // ISO date-only
+  amount: number; // positive rupees
+  type: "income" | "expense";
+}
+
+export interface HouseholdPlan {
+  /** Total discretionary amount the household can save per month. */
+  monthlyBudget: number;
+  /** Annual step-up applied to the budget. */
+  annualStepUp: number;
+  lifeEvents: LifeEvent[];
+}
+
 // ---- Calculator scenarios (PRD §6 CAL01..04) ----
 
 export type CalculatorKind =
@@ -269,6 +287,7 @@ export interface AppState {
   contributionStreams: ContributionStream[];
   savedScenarios: SavedScenario[];
   lastBackupAt?: string;
+  household?: HouseholdPlan;
 }
 
 export const SCHEMA_VERSION = 1;

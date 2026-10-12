@@ -32,6 +32,7 @@ export function emptyState(): AppState {
     goals: [],
     contributionStreams: [],
     savedScenarios: [],
+    household: { monthlyBudget: 0, annualStepUp: 0, lifeEvents: [] },
   };
 }
 
@@ -56,6 +57,9 @@ export type Action =
   | { type: "REMOVE_CONTRIBUTION_STREAM"; id: string }
   | { type: "RESOLVE_ISSUE"; id: string }
   | { type: "MARK_BACKUP"; at: string }
+  | { type: "SET_HOUSEHOLD"; patch: Partial<NonNullable<AppState["household"]>> }
+  | { type: "ADD_LIFE_EVENT"; event: import("../types").LifeEvent }
+  | { type: "REMOVE_LIFE_EVENT"; id: string }
   | { type: "RESET_ALL" };
 
 export interface CommitImportPayload {
@@ -203,6 +207,21 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case "MARK_BACKUP":
       return touch({ ...state, lastBackupAt: action.at });
+
+    case "SET_HOUSEHOLD": {
+      const base = state.household ?? { monthlyBudget: 0, annualStepUp: 0, lifeEvents: [] };
+      return touch({ ...state, household: { ...base, ...action.patch } });
+    }
+
+    case "ADD_LIFE_EVENT": {
+      const base = state.household ?? { monthlyBudget: 0, annualStepUp: 0, lifeEvents: [] };
+      return touch({ ...state, household: { ...base, lifeEvents: [...base.lifeEvents, action.event] } });
+    }
+
+    case "REMOVE_LIFE_EVENT": {
+      const base = state.household ?? { monthlyBudget: 0, annualStepUp: 0, lifeEvents: [] };
+      return touch({ ...state, household: { ...base, lifeEvents: base.lifeEvents.filter((e) => e.id !== action.id) } });
+    }
 
     case "RESET_ALL":
       return emptyState();
