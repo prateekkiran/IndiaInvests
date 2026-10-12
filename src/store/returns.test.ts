@@ -53,7 +53,10 @@ describe("hypothetical benchmark (POR05)", () => {
     const b = hypotheticalBenchmark(s, 0.1, 13200, "2026-10-01");
     expect(round2(b.investedTotal)).toBe(12000);
     expect(Math.round(b.investorFinalIfBenchmarked)).toBe(13200);
-    expect(Math.round(b.difference ?? -1)).toBe(0);
+    // Difference is ~0 but floating-point (Math.pow(1.1,1) leaves dust), which
+    // Math.round turns into -0; toBe uses Object.is where -0 ≠ +0. Assert
+    // "approximately zero" instead, which is the real intent.
+    expect(b.difference ?? -1).toBeCloseTo(0, 2);
   });
 
   it("reports the gap between the portfolio and the hypothetical", () => {
