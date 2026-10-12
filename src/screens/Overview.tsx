@@ -9,6 +9,7 @@ import { fmtDate } from "../util";
 import { AssetClass } from "../types";
 import { CountUp, Reveal, AnimatedBar } from "../anim/components";
 import { floatLoop, popIn, revealStagger, prefersReduced } from "../anim/motion";
+import { DemoTip } from "../demo/DemoUI";
 
 const CLASS_LABEL: Record<AssetClass, string> = {
   equity_mf: "Equity funds", debt_mf: "Debt funds", hybrid_mf: "Hybrid funds", other_mf: "Other funds",
@@ -73,7 +74,7 @@ function Hero({ onNavigate, name }: { onNavigate: (r: string) => void; name?: st
 }
 
 export function Overview({ onNavigate }: { onNavigate: (route: string) => void }) {
-  const { state, vaultStatus } = useApp();
+  const { state, vaultStatus, loadDemo } = useApp();
   const summary = portfolioSummary(state);
   const perf = portfolioPerformance(state);
   const hasData = state.transactions.length > 0 || state.snapshots.length > 0 || state.manualAssets.length > 0;
@@ -83,6 +84,17 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
     return (
       <div>
         <Hero onNavigate={onNavigate} name={state.owners[0]?.label} />
+        <div style={{ marginTop: 16 }}>
+          <Card style={{ background: "var(--indigo-100)", borderColor: "transparent" }}>
+            <div className="row between" style={{ gap: 16, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <h3 style={{ margin: "0 0 4px" }}>New here? Take a guided tour</h3>
+                <p className="soft" style={{ margin: 0 }}>Load a complete fictional account — portfolio, goals, household plan, value history and saved scenarios — to see every feature with realistic data. Nothing is saved to your device, and you can exit anytime.</p>
+              </div>
+              <Button variant="primary" onClick={loadDemo}>Load demo account</Button>
+            </div>
+          </Card>
+        </div>
         <div style={{ marginTop: 16 }}>
           <Callout tone="info">
             {vaultStatus === "none"
@@ -100,6 +112,9 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
   return (
     <div>
       <PageHead title="Overview" />
+      <DemoTip id="overview" title="This is your financial home base">
+        Net worth, asset allocation, since-inception XIRR and goal progress — all derived from the demo transactions. Open <strong>Portfolio → Value history</strong> to see actual value over time, or <strong>Household</strong> to see goals planned against one shared budget.
+      </DemoTip>
 
       {(summary.unvaluedCount > 0 || summary.anyStale) && (
         <div className="data-health" style={{ marginBottom: 16 }}>

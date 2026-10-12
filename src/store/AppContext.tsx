@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useEffect, useReducer, useRef, useState } from "react";
 import { AppState } from "../types";
 import { reducer, emptyState, Action } from "./state";
+import { buildDemoState } from "../demo/demoData";
 import {
   loadVault,
   saveEncryptedVault,
@@ -35,6 +36,11 @@ interface Ctx {
   exportBackup: (passphrase: string) => Promise<Blob>;
   importBackup: (file: File, passphrase: string) => Promise<void>;
   markBackupNow: () => void;
+  /** Load the seeded demo persona into memory (never persisted). */
+  loadDemo: () => void;
+  /** Leave the demo and restore the real vault state. */
+  exitDemo: () => void;
+  isDemo: boolean;
 }
 
 const AppCtx = createContext<Ctx | null>(null);
@@ -81,6 +87,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const firstPersist = useRef(true);
   useEffect(() => {
     if (vaultStatus !== "unlocked") return;
+    // NEVER persist the demo account — it must not overwrite a real vault.
+    if (state.demo) return;
     if (firstPersist.current) {
       firstPersist.current = false;
       // still persist to capture the just-created vault
@@ -97,6 +105,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state, vaultStatus, encrypted]);
 
   async function createEncryptedVault(passphrase: string) {
+    if (state.demo) return; // never persist the demo persona into a real vault
     passRef.current = passphrase;
     setEncrypted(true);
     await requestPersistentStorage();
@@ -106,6 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function createPlaintextVault() {
+    if (state.demo) return; // never persist the demo persona into a real vault
     passRef.current = null;
     setEncrypted(false);
     await requestPersistentStorage();
@@ -174,6 +184,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: "MARK_BACKUP", at: new Date().toISOString() });
   }
 
+  function loadDemo() {
+    dispatch({ type: "REPLACE_STATE", state: buildDemoState() });
+  }
+
+  function exitDemo() {
+    // Reload restores the real vault state (locked gate / saved data / empty
+    // welcome) and discards the ephemeral demo without any persistence.
+    window.location.reload();
+  }
+
   return (
     <AppCtx.Provider
       value={{
@@ -189,6 +209,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         exportBackup,
         importBackup,
         markBackupNow,
+        loadDemo,
+        exitDemo,
+        isDemo: !!state.demo,
       }}
     >
       {children}

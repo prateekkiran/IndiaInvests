@@ -5,6 +5,7 @@ import { runScenario, ScenarioResult } from "../engine/scenario";
 import { formatINR, formatPercent } from "../engine/money";
 import { fmtDate } from "../util";
 import { SavedScenario, ScenarioInputs, CalculatorKind } from "../types";
+import { DemoTip } from "../demo/DemoUI";
 
 const KIND_LABEL: Record<CalculatorKind, string> = {
   sip: "SIP",
@@ -89,6 +90,9 @@ export function Explore() {
       <PageHead title="Explore scenarios">
         Compare up to three saved scenarios side by side. Each card shows the headline figure for its calculator type, and the stress toggle applies an adverse rate appropriate to each type before any plan looks “enough”.
       </PageHead>
+      <DemoTip id="explore" title="Compare saved scenarios">
+        The demo ships three saved scenarios — a level SIP, a step-up SIP, and a retirement drawdown. Select up to three and toggle the adverse-rate stress path to see how each holds up.
+      </DemoTip>
 
       <Card>
         <div className="row between">

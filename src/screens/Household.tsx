@@ -7,6 +7,7 @@ import { simulateHousehold, HouseholdGoalInput, HouseholdEventInput } from "../e
 import { formatINR, formatINRCompact, formatPercent } from "../engine/money";
 import { fmtDate, uid, todayISO, monthsBetween } from "../util";
 import { LifeEvent } from "../types";
+import { DemoTip } from "../demo/DemoUI";
 
 export function Household() {
   const { state, dispatch } = useApp();
@@ -55,6 +56,9 @@ export function Household() {
       <PageHead title="Household & life events">
         One shared plan across all your goals. Instead of sizing each goal on its own — which quietly lets the same rupee fund several goals at once — this runs a single month-by-month simulation that spends your budget once, in priority order, and models each goal being withdrawn once at its target date.
       </PageHead>
+      <DemoTip id="household" title="One budget, many goals — spent once">
+        The demo splits a ₹60,000/month budget across four goals by priority, with a bonus and two expenses as life events. Watch how lower-priority goals fall short when the budget can't cover everything — the honest result independent planning hides.
+      </DemoTip>
 
       {state.goals.length === 0 ? (
         <EmptyState icon="⌂" title="No goals yet">Create goals first, then plan them together here with a shared budget and life events.</EmptyState>

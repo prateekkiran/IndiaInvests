@@ -8,7 +8,7 @@ import { CountUp, Reveal } from "../anim/components";
 import { openPlanReport } from "../report/planReport";
 
 export function DataCentre() {
-  const { state, dispatch, encrypted, exportBackup, importBackup, markBackupNow, wipe } = useApp();
+  const { state, dispatch, encrypted, exportBackup, importBackup, markBackupNow, wipe, loadDemo, exitDemo, isDemo } = useApp();
   const summary = portfolioSummary(state);
   const [backupPass, setBackupPass] = useState("");
   const [showBackup, setShowBackup] = useState(false);
@@ -131,6 +131,21 @@ export function DataCentre() {
           </div>
         )}
       </Card></Reveal>
+
+      <Card style={{ marginTop: 16 }}>
+        <h3>Demo account</h3>
+        {isDemo ? (
+          <>
+            <p className="soft">You're exploring the fictional demo. Exit to return to your own workspace — nothing from the demo is saved.</p>
+            <Button size="sm" onClick={exitDemo}>Exit demo</Button>
+          </>
+        ) : (
+          <>
+            <p className="soft">Load a complete fictional account to explore every feature with realistic data. It's never saved to your device, and your current data is restored when you exit.</p>
+            <Button size="sm" variant="teal" onClick={loadDemo}>Load demo account</Button>
+          </>
+        )}
+      </Card>
 
       <Card style={{ marginTop: 16, borderColor: "var(--red-100)" }}>
         <h3 style={{ color: "var(--red-600)" }}>Delete everything</h3>

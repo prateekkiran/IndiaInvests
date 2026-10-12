@@ -288,6 +288,8 @@ export interface AppState {
   savedScenarios: SavedScenario[];
   lastBackupAt?: string;
   household?: HouseholdPlan;
+  /** True when the state is the seeded demo account (never persisted to a vault). */
+  demo?: boolean;
 }
 
 export const SCHEMA_VERSION = 1;

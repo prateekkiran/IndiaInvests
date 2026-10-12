@@ -12,6 +12,7 @@ import { DataCentre } from "./screens/DataCentre";
 import { Settings } from "./screens/Settings";
 import { VaultGate } from "./screens/VaultGate";
 import { Icon, IconName } from "./components/Icon";
+import { DemoBanner } from "./demo/DemoUI";
 
 type Route = "overview" | "portfolio" | "goals" | "household" | "explore" | "calculators" | "data" | "settings";
 
@@ -103,6 +104,7 @@ function Shell() {
       </nav>
 
       <div className="main">
+        <DemoBanner />
         <div className="content" ref={contentRef}>{screen}</div>
       </div>
 

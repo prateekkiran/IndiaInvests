@@ -9,6 +9,7 @@ import { parseNavPackage, NavPackageResult, downloadSampleNavPackage } from "../
 import { formatINR, formatINRCompact, formatPercent, groupIndian } from "../engine/money";
 import { fmtDate, uid, todayISO } from "../util";
 import { AssetClass, ManualAsset, ManualLiability } from "../types";
+import { DemoTip } from "../demo/DemoUI";
 
 const CLASS_OPTIONS: Array<{ value: AssetClass; label: string }> = [
   { value: "equity_mf", label: "Equity fund" }, { value: "debt_mf", label: "Debt fund" }, { value: "hybrid_mf", label: "Hybrid fund" },
@@ -35,6 +36,9 @@ export function Portfolio() {
       <PageHead title="Portfolio">
         A reconciled view of what you own, with the valuation date and coverage shown for every number. We never ask for provider logins and never fetch data automatically.
       </PageHead>
+      <DemoTip id="portfolio" title="A reconciled portfolio from demo transactions">
+        Three funds with 36 months of SIPs drive Holdings, Transactions, Performance (XIRR) and the <strong>Value history</strong> chart. The Import tab shows how your own CSV / CAS-PDF / NAV packages would come in.
+      </DemoTip>
 
       {vaultStatus === "none" && (
         <div style={{ marginBottom: 16 }}>
