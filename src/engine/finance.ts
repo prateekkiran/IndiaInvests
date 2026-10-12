@@ -232,3 +232,238 @@ export function projectedFinalValue(input: ProjectionInput): number {
   const rows = project(input);
   return rows.length ? rows[rows.length - 1].closingBalance : input.openingBalance;
 }
+
+// ---------------------------------------------------------------------------
+// P1 — Decumulation & more calculators (SWP, retirement drawdown, FD/RD, loan).
+// These are covered by golden-fixture tests in finance.test.ts.
+//
+// Convention note: investment growth uses the ANNUAL EFFECTIVE rate (F01).
+// Loans, FDs and RDs follow the market convention of a NOMINAL annual rate
+// divided by the compounding frequency (e.g. loan monthly rate = annual / 12).
+// The two conventions are deliberately kept separate and each is labelled in
+// the UI so a rate is never silently reinterpreted.
+// ---------------------------------------------------------------------------
+
+/** F14 — EMI for a reducing-balance loan. Monthly rate = annual nominal / 12. */
+export function emi(principal: number, annualNominalRate: number, months: number): number {
+  if (!Number.isInteger(months) || months <= 0) {
+    throw new RangeError("Loan tenure must be a positive whole number of months.");
+  }
+  if (principal < 0) throw new RangeError("Loan principal must be non-negative.");
+  const r = annualNominalRate / MONTHS_PER_YEAR;
+  if (Math.abs(r) < 1e-15) return principal / months;
+  const f = Math.pow(1 + r, months);
+  return (principal * r * f) / (f - 1);
+}
+
+export interface AmortRow {
+  month: number;
+  payment: number;
+  interest: number;
+  principalPaid: number;
+  balance: number;
+}
+
+export interface AmortResult {
+  baseEmi: number;
+  rows: AmortRow[];
+  totalInterest: number;
+  totalPaid: number;
+  payoffMonth: number;
+  scheduledMonths: number;
+  monthsSaved: number;
+}
+
+/**
+ * Amortise a reducing-balance loan, optionally with a constant extra monthly
+ * prepayment. Prepayment shortens the tenure; the final payment is trimmed so
+ * the balance never goes negative.
+ */
+export function amortize(
+  principal: number,
+  annualNominalRate: number,
+  months: number,
+  extraMonthly = 0
+): AmortResult {
+  const baseEmi = emi(principal, annualNominalRate, months);
+  const r = annualNominalRate / MONTHS_PER_YEAR;
+  const rows: AmortRow[] = [];
+  let balance = principal;
+  let totalInterest = 0;
+  let totalPaid = 0;
+  const cap = months * 5 + 1200; // safety bound
+  let m = 0;
+  while (balance > 1e-6 && m < cap) {
+    m++;
+    const interest = balance * r;
+    let payment = baseEmi + Math.max(0, extraMonthly);
+    if (payment > balance + interest) payment = balance + interest; // trim final
+    const principalPaid = payment - interest;
+    balance = Math.max(0, balance - principalPaid);
+    totalInterest += interest;
+    totalPaid += payment;
+    rows.push({ month: m, payment, interest, principalPaid, balance });
+  }
+  return {
+    baseEmi,
+    rows,
+    totalInterest,
+    totalPaid,
+    payoffMonth: m,
+    scheduledMonths: months,
+    monthsSaved: Math.max(0, months - m),
+  };
+}
+
+export interface FdResult {
+  maturity: number;
+  interest: number;
+  effectiveYield: number;
+}
+
+/** Generic compound-interest maturity (used for FD). Nominal rate, m compoundings/year. */
+export function fdMaturity(
+  principal: number,
+  annualNominalRate: number,
+  years: number,
+  compoundingPerYear = 4
+): FdResult {
+  if (principal < 0 || years < 0) throw new RangeError("Principal and years must be non-negative.");
+  const m = compoundingPerYear;
+  const maturity = principal * Math.pow(1 + annualNominalRate / m, m * years);
+  return {
+    maturity,
+    interest: maturity - principal,
+    effectiveYield: Math.pow(1 + annualNominalRate / m, m) - 1,
+  };
+}
+
+export interface RdResult {
+  maturity: number;
+  deposited: number;
+  interest: number;
+}
+
+/**
+ * Generic recurring-deposit maturity: level monthly deposits compounded monthly
+ * at a nominal annual rate / 12. Labelled generic — real bank RDs compound
+ * quarterly and actual maturity may differ slightly.
+ */
+export function rdMaturityGeneric(monthly: number, annualNominalRate: number, months: number): RdResult {
+  const i = annualNominalRate / MONTHS_PER_YEAR;
+  const maturity = sipFV(monthly, i, months, "end");
+  const deposited = monthly * months;
+  return { maturity, deposited, interest: maturity - deposited };
+}
+
+/** Expand an array of ANNUAL EFFECTIVE returns (one per year) to monthly rates. */
+export function monthlyRatesFromAnnualPath(annualReturns: number[], months: number): number[] {
+  const out: number[] = [];
+  for (let t = 0; t < months; t++) {
+    const y = Math.floor(t / MONTHS_PER_YEAR);
+    const annual = annualReturns[Math.min(y, annualReturns.length - 1)] ?? 0;
+    out.push(monthlyRateFromAnnual(annual));
+  }
+  return out;
+}
+
+export interface DrawdownInput {
+  openingCorpus: number;
+  months: number;
+  /** Annual effective return during drawdown. Ignored if annualReturnPath is set. */
+  annualReturn: number;
+  /** Optional per-year effective return path (sequence-of-returns studies). */
+  annualReturnPath?: number[];
+  /** Net withdrawal in month 1 (nominal). */
+  firstMonthlyWithdrawal: number;
+  /** Annual growth applied to the withdrawal (e.g. expense inflation). */
+  annualWithdrawalGrowth?: number;
+  /** Monthly pension/other income that offsets the withdrawal. */
+  monthlyPension?: number;
+  annualPensionGrowth?: number;
+  timing?: Timing;
+}
+
+export interface DrawdownResult {
+  rows: MonthRow[];
+  depletionMonth: number | null;
+  totalWithdrawnPaid: number;
+  totalUnmet: number;
+  endingBalance: number;
+}
+
+/** Build the net-withdrawal map (expense − pension, each inflating annually). */
+function buildWithdrawalMap(input: DrawdownInput): Map<number, number> {
+  const wg = input.annualWithdrawalGrowth ?? 0;
+  const pg = input.annualPensionGrowth ?? 0;
+  const map = new Map<number, number>();
+  for (let t = 1; t <= input.months; t++) {
+    const y = Math.floor((t - 1) / MONTHS_PER_YEAR);
+    const expense = input.firstMonthlyWithdrawal * Math.pow(1 + wg, y);
+    const pension = (input.monthlyPension ?? 0) * Math.pow(1 + pg, y);
+    map.set(t, Math.max(0, expense - pension));
+  }
+  return map;
+}
+
+/** SWP / retirement drawdown. Reports the first month a withdrawal cannot be met. */
+export function drawdownProjection(input: DrawdownInput): DrawdownResult {
+  const rate = input.annualReturnPath
+    ? monthlyRatesFromAnnualPath(input.annualReturnPath, input.months)
+    : monthlyRateFromAnnual(input.annualReturn);
+  const withdrawals = buildWithdrawalMap(input);
+  const rows = project({
+    openingBalance: input.openingCorpus,
+    months: input.months,
+    monthlyRate: rate,
+    baseContribution: 0,
+    timing: input.timing ?? "end",
+    withdrawals,
+  });
+  let depletionMonth: number | null = null;
+  let totalUnmet = 0;
+  for (const r of rows) {
+    if (r.withdrawalUnmet > 1e-6 && depletionMonth === null) depletionMonth = r.month;
+    totalUnmet += r.withdrawalUnmet;
+  }
+  const endingBalance = rows.length ? rows[rows.length - 1].closingBalance : input.openingCorpus;
+  const totalWithdrawnPaid = rows.length ? rows[rows.length - 1].cumulativeWithdrawalPaid : 0;
+  return { rows, depletionMonth, totalWithdrawnPaid, totalUnmet, endingBalance };
+}
+
+export interface SequenceStressResult {
+  badEarly: { depletionMonth: number | null; endingBalance: number };
+  goodEarly: { depletionMonth: number | null; endingBalance: number };
+}
+
+/**
+ * Sequence-of-returns demonstration: the SAME multiset of annual returns
+ * (symmetric around `meanAnnual`) applied worst-first vs best-first. Identical
+ * average, different order — bad-early depletes no later and ends no higher.
+ */
+export function sequenceStress(
+  corpus: number,
+  months: number,
+  meanAnnual: number,
+  firstMonthlyWithdrawal: number,
+  annualWithdrawalGrowth = 0,
+  spread = 0.12
+): SequenceStressResult {
+  const years = Math.max(1, Math.ceil(months / MONTHS_PER_YEAR));
+  const base: number[] = [];
+  for (let y = 0; y < years; y++) base.push(meanAnnual + (y % 2 === 0 ? -spread : spread));
+  const asc = [...base].sort((a, b) => a - b); // worst first
+  const desc = [...base].sort((a, b) => b - a); // best first
+  const run = (path: number[]) => {
+    const d = drawdownProjection({
+      openingCorpus: corpus,
+      months,
+      annualReturn: meanAnnual,
+      annualReturnPath: path,
+      firstMonthlyWithdrawal,
+      annualWithdrawalGrowth,
+    });
+    return { depletionMonth: d.depletionMonth, endingBalance: d.endingBalance };
+  };
+  return { badEarly: run(asc), goodEarly: run(desc) };
+}

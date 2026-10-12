@@ -201,7 +201,12 @@ export type CalculatorKind =
   | "stepup"
   | "goal_future"
   | "required_sip"
-  | "inflation";
+  | "inflation"
+  | "swp"
+  | "retirement"
+  | "fd"
+  | "rd"
+  | "loan";
 
 export interface ScenarioInputs {
   kind: CalculatorKind;
@@ -217,6 +222,21 @@ export interface ScenarioInputs {
   openingBalance?: number;
   pauses?: number[];
   oneTime?: Array<{ month: number; amount: number }>;
+  // --- P1 decumulation & more calculators ---
+  /** SWP/retirement: monthly withdrawal (or retirement monthly expense in today's rupees). */
+  withdrawalMonthly?: number;
+  /** Grow the withdrawal each year with assumed inflation. */
+  withdrawalInflates?: boolean;
+  /** Retirement: monthly pension/other income offsetting the withdrawal. */
+  pensionMonthly?: number;
+  /** FD/loan: principal amount. */
+  principal?: number;
+  /** FD/RD/loan: nominal annual rate (market convention), decimal. */
+  nominalRate?: number;
+  /** FD: compoundings per year (e.g. 4 = quarterly). */
+  compoundingPerYear?: number;
+  /** Loan: optional constant extra monthly prepayment. */
+  extraPrepay?: number;
 }
 
 export interface SavedScenario {
@@ -252,4 +272,4 @@ export interface AppState {
 }
 
 export const SCHEMA_VERSION = 1;
-export const ENGINE_VERSION = "engine-1.0.0";
+export const ENGINE_VERSION = "engine-1.1.0";

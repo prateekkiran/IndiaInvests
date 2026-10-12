@@ -12,6 +12,11 @@ import {
   requiredEndMonthSIP,
   lumpSumFV,
   MONTHS_PER_YEAR,
+  drawdownProjection,
+  sequenceStress,
+  fdMaturity,
+  rdMaturityGeneric,
+  amortize,
 } from "./finance";
 import { GrowthPoint } from "../components/Charts";
 import { formatINR, formatPercent, round2 } from "./money";
@@ -31,6 +36,14 @@ export interface ScenarioResult {
   requiredContribution?: number;
   immediateGap?: number | null;
   futureTarget?: number;
+  /** Relabels the two chart series for non-accumulation scenarios. */
+  legend?: { value: string; contributed: string };
+  /** Relabels the result-table columns. */
+  tableColumns?: { period: string; contributed: string; growth: string; value: string };
+  /** False for drawdown/loan where the nominal/real toggle doesn't apply. */
+  isAccumulation?: boolean;
+  /** First month a withdrawal couldn't be met / loan payoff month, when relevant. */
+  depletionMonth?: number | null;
 }
 
 function yearlySeriesFromRows(
@@ -146,6 +159,169 @@ export function runScenario(inputs: ScenarioInputs): ScenarioResult {
       requiredContribution: req.requiredContribution,
       immediateGap: req.immediateGap,
       futureTarget: future,
+    };
+  }
+
+  if (inputs.kind === "swp" || inputs.kind === "retirement") {
+    const corpus = inputs.openingBalance ?? inputs.lumpSum ?? 0;
+    const withdrawal = inputs.withdrawalMonthly ?? 0;
+    const wGrowth = inputs.withdrawalInflates ? inputs.annualInflation : 0;
+    const pension = inputs.kind === "retirement" ? inputs.pensionMonthly ?? 0 : 0;
+    const d = drawdownProjection({
+      openingCorpus: corpus,
+      months,
+      annualReturn: inputs.annualReturn,
+      firstMonthlyWithdrawal: withdrawal,
+      annualWithdrawalGrowth: wGrowth,
+      monthlyPension: pension,
+      annualPensionGrowth: pension ? wGrowth : 0,
+      timing: inputs.timing,
+    });
+    const series: GrowthPoint[] = [{ label: "Now", contributed: 0, value: corpus, projected: true }];
+    const drawTable: Array<{ period: string; contributed: number; growth: number; value: number }> = [
+      { period: "Now", contributed: 0, growth: 0, value: corpus },
+    ];
+    let cumGrowth = 0;
+    d.rows.forEach((r) => {
+      cumGrowth += r.growth;
+      if (r.month % MONTHS_PER_YEAR === 0 || r.month === d.rows.length) {
+        series.push({ label: `Yr ${Math.round(r.month / MONTHS_PER_YEAR) || (r.month / MONTHS_PER_YEAR).toFixed(1)}`, contributed: r.cumulativeWithdrawalPaid, value: r.closingBalance, projected: true });
+        drawTable.push({ period: `Yr ${Math.round(r.month / MONTHS_PER_YEAR) || (r.month / MONTHS_PER_YEAR).toFixed(1)}`, contributed: r.cumulativeWithdrawalPaid, growth: cumGrowth, value: r.closingBalance });
+      }
+    });
+    const depletes = d.depletionMonth != null;
+    if (depletes) notes.push(`At this withdrawal, the corpus runs out in month ${d.depletionMonth} (around year ${Math.ceil(d.depletionMonth! / 12)}). ${formatINR(d.totalUnmet)} of planned withdrawals could not be met.`);
+    else notes.push(`The corpus lasts the full ${inputs.years} years, ending at ${formatINR(d.endingBalance)}.`);
+    if (inputs.kind === "retirement") {
+      const s = sequenceStress(corpus, months, inputs.annualReturn, withdrawal - pension > 0 ? withdrawal - pension : withdrawal, wGrowth);
+      const bad = s.badEarly.depletionMonth;
+      const good = s.goodEarly.depletionMonth;
+      if (bad != null && (good == null || bad < good)) {
+        notes.push(`Sequence-of-returns risk: with the SAME average return but poor early years, the corpus would deplete around month ${bad}${good != null ? ` instead of month ${good}` : ""}. Average-return planning hides this.`);
+      } else {
+        notes.push("Sequence-of-returns check: even with poor early years at the same average return, the plan held up over this horizon.");
+      }
+    }
+    return {
+      months,
+      monthlyRate: monthlyRateFromAnnual(inputs.annualReturn),
+      series,
+      finalValue: d.endingBalance,
+      contributed: d.totalWithdrawnPaid,
+      growth: d.rows.reduce((a, r) => a + r.growth, 0),
+      realFinalValue: realValue(d.endingBalance, inputs.annualInflation, months),
+      headline: [
+        { label: depletes ? "Runs out in" : "Ending balance", value: depletes ? `Month ${d.depletionMonth}` : formatINR(d.endingBalance), emphasise: true },
+        { label: "Total withdrawn", value: formatINR(d.totalWithdrawnPaid) },
+        { label: inputs.kind === "retirement" ? "First monthly expense" : "Monthly withdrawal", value: formatINR(withdrawal) },
+        { label: "Starting corpus", value: formatINR(corpus) },
+      ],
+      table: drawTable,
+      formula: `Each month the balance earns i = (1+${formatPercent(inputs.annualReturn)})^(1/12)−1, then the withdrawal is taken${wGrowth ? ` (rising ${formatPercent(wGrowth)}/yr with inflation)` : ""}${pension ? ` net of ${formatINR(pension)} pension` : ""}. Withdrawals stop at the available balance and any shortfall is reported (F05).`,
+      notes,
+      legend: { value: "Balance remaining", contributed: "Withdrawn (cumulative)" },
+      tableColumns: { period: "Period", contributed: "Withdrawn", growth: "Interest earned", value: "Balance" },
+      isAccumulation: false,
+      depletionMonth: d.depletionMonth,
+    };
+  }
+
+  if (inputs.kind === "fd" || inputs.kind === "rd") {
+    const rate = inputs.nominalRate ?? inputs.annualReturn;
+    const series: GrowthPoint[] = [];
+    if (inputs.kind === "fd") {
+      const principal = inputs.principal ?? inputs.lumpSum ?? 0;
+      const m = inputs.compoundingPerYear ?? 4;
+      for (let yr = 0; yr <= inputs.years; yr++) {
+        const v = fdMaturity(principal, rate, yr, m).maturity;
+        series.push({ label: yr === 0 ? "Now" : `Yr ${yr}`, contributed: principal, value: v, projected: yr > 0 });
+      }
+      const r = fdMaturity(principal, rate, inputs.years, m);
+      return {
+        months, monthlyRate: 0, series,
+        finalValue: r.maturity, contributed: principal, growth: r.interest,
+        realFinalValue: realValue(r.maturity, inputs.annualInflation, months),
+        headline: [
+          { label: "Maturity value", value: formatINR(r.maturity), emphasise: true },
+          { label: "Interest earned", value: formatINR(r.interest) },
+          { label: "Effective yield", value: formatPercent(r.effectiveYield) },
+          { label: "Principal", value: formatINR(principal) },
+        ],
+        table: series.map((s) => ({ period: s.label, contributed: s.contributed, growth: s.value - s.contributed, value: s.value })),
+        formula: `Generic compound interest: maturity = P·(1 + r/m)^(m·years), r = ${formatPercent(rate)} nominal, m = ${m} compoundings/year. This is a generic tool, not a product-specific FD quote.`,
+        notes: ["Real bank FDs may use a different compounding basis; confirm with your provider."],
+        legend: { value: "Maturity value", contributed: "Principal" },
+        tableColumns: { period: "Period", contributed: "Principal", growth: "Interest", value: "Value" },
+        isAccumulation: true,
+      };
+    } else {
+      const monthly = inputs.monthlyContribution ?? 0;
+      for (let yr = 0; yr <= inputs.years; yr++) {
+        const v = rdMaturityGeneric(monthly, rate, yr * MONTHS_PER_YEAR).maturity;
+        series.push({ label: yr === 0 ? "Now" : `Yr ${yr}`, contributed: monthly * yr * MONTHS_PER_YEAR, value: v, projected: yr > 0 });
+      }
+      const r = rdMaturityGeneric(monthly, rate, months);
+      return {
+        months, monthlyRate: rate / MONTHS_PER_YEAR, series,
+        finalValue: r.maturity, contributed: r.deposited, growth: r.interest,
+        realFinalValue: realValue(r.maturity, inputs.annualInflation, months),
+        headline: [
+          { label: "Maturity value", value: formatINR(r.maturity), emphasise: true },
+          { label: "Total deposited", value: formatINR(r.deposited) },
+          { label: "Interest earned", value: formatINR(r.interest) },
+          { label: "Monthly deposit", value: formatINR(monthly) },
+        ],
+        table: series.map((s) => ({ period: s.label, contributed: s.contributed, growth: s.value - s.contributed, value: s.value })),
+        formula: `Generic recurring deposit: level monthly deposits compounded monthly at r/12 (r = ${formatPercent(rate)} nominal). Generic tool — real RDs often compound quarterly.`,
+        notes: ["Labelled generic; a bank's RD maturity may differ slightly."],
+        legend: { value: "Maturity value", contributed: "Deposited" },
+        tableColumns: { period: "Period", contributed: "Deposited", growth: "Interest", value: "Value" },
+        isAccumulation: true,
+      };
+    }
+  }
+
+  if (inputs.kind === "loan") {
+    const principal = inputs.principal ?? 0;
+    const rate = inputs.nominalRate ?? inputs.annualReturn;
+    const tenureMonths = months;
+    const extra = inputs.extraPrepay ?? 0;
+    const a = amortize(principal, rate, tenureMonths, extra);
+    const series: GrowthPoint[] = [{ label: "Now", contributed: 0, value: principal, projected: true }];
+    const loanTable: Array<{ period: string; contributed: number; growth: number; value: number }> = [
+      { period: "Now", contributed: 0, growth: 0, value: principal },
+    ];
+    let cumInterest = 0;
+    a.rows.forEach((r) => {
+      cumInterest += r.interest;
+      if (r.month % MONTHS_PER_YEAR === 0 || r.month === a.rows.length) {
+        series.push({ label: `Yr ${Math.round(r.month / MONTHS_PER_YEAR) || (r.month / MONTHS_PER_YEAR).toFixed(1)}`, contributed: principal - r.balance, value: r.balance, projected: true });
+        loanTable.push({ period: `Yr ${Math.round(r.month / MONTHS_PER_YEAR) || (r.month / MONTHS_PER_YEAR).toFixed(1)}`, contributed: principal - r.balance, growth: cumInterest, value: r.balance });
+      }
+    });
+    if (extra > 0 && a.monthsSaved > 0) notes.push(`Prepaying ${formatINR(extra)}/month clears the loan in ${a.payoffMonth} months — ${a.monthsSaved} months early.`);
+    notes.push(`Loans use the market convention monthly rate = ${formatPercent(rate)} ÷ 12, which differs from the effective-rate basis used for investments.`);
+    return {
+      months: tenureMonths,
+      monthlyRate: rate / MONTHS_PER_YEAR,
+      series,
+      finalValue: 0,
+      contributed: principal,
+      growth: a.totalInterest,
+      realFinalValue: 0,
+      headline: [
+        { label: "Monthly EMI", value: formatINR(a.baseEmi), emphasise: true },
+        { label: "Total interest", value: formatINR(a.totalInterest) },
+        { label: "Total paid", value: formatINR(a.totalPaid) },
+        { label: extra > 0 ? "Payoff (months)" : "Tenure (months)", value: `${a.payoffMonth}` },
+      ],
+      table: loanTable,
+      formula: `EMI = P·r·(1+r)^n / ((1+r)^n − 1), r = ${formatPercent(rate)}/12, n = ${tenureMonths} (F14). Interest each month = balance·r; the rest reduces principal.`,
+      notes,
+      legend: { value: "Balance outstanding", contributed: "Principal paid" },
+      tableColumns: { period: "Period", contributed: "Principal paid", growth: "Interest paid", value: "Balance" },
+      isAccumulation: false,
+      depletionMonth: a.payoffMonth,
     };
   }
 

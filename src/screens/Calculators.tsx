@@ -3,20 +3,31 @@ import { useApp } from "../store/AppContext";
 import { CalculatorKind, ScenarioInputs, AmountBasis } from "../types";
 import { runScenario } from "../engine/scenario";
 import { GrowthChart } from "../components/Charts";
-import { PageHead, Card, Button, NumberField, SliderField, Segmented, Callout, Disclosure, SelectField, Badge } from "../components/ui";
+import { PageHead, Card, Button, NumberField, SliderField, Segmented, Callout, Disclosure, SelectField, Toggle } from "../components/ui";
 import { formatINR, formatPercent, groupIndian } from "../engine/money";
 import { uid, todayISO } from "../util";
 import { ENGINE_VERSION } from "../types";
 import { Reveal } from "../anim/components";
 
-const KINDS: Array<{ id: CalculatorKind; label: string }> = [
-  { id: "sip", label: "SIP" },
-  { id: "lumpsum", label: "Lump sum" },
-  { id: "stepup", label: "Step-up SIP" },
-  { id: "goal_future", label: "Goal amount" },
-  { id: "required_sip", label: "Required SIP" },
-  { id: "inflation", label: "Inflation / real" },
+const KINDS: Array<{ id: CalculatorKind; label: string; group: string }> = [
+  { id: "sip", label: "SIP", group: "Grow" },
+  { id: "lumpsum", label: "Lump sum", group: "Grow" },
+  { id: "stepup", label: "Step-up SIP", group: "Grow" },
+  { id: "goal_future", label: "Goal amount", group: "Grow" },
+  { id: "required_sip", label: "Required SIP", group: "Grow" },
+  { id: "inflation", label: "Inflation / real", group: "Grow" },
+  { id: "swp", label: "SWP", group: "Draw down" },
+  { id: "retirement", label: "Retirement", group: "Draw down" },
+  { id: "fd", label: "FD", group: "Deposit & borrow" },
+  { id: "rd", label: "RD", group: "Deposit & borrow" },
+  { id: "loan", label: "Loan / EMI", group: "Deposit & borrow" },
 ];
+
+// Which kinds use the effective annual-return slider vs a nominal-rate field.
+const USES_RETURN = new Set<CalculatorKind>(["sip", "lumpsum", "stepup", "required_sip", "inflation", "swp", "retirement"]);
+const USES_NOMINAL = new Set<CalculatorKind>(["fd", "rd", "loan"]);
+const USES_INFLATION = new Set<CalculatorKind>(["sip", "lumpsum", "stepup", "goal_future", "required_sip", "inflation", "swp", "retirement"]);
+const USES_TIMING = new Set<CalculatorKind>(["sip", "stepup", "required_sip", "swp", "retirement"]);
 
 export function Calculators() {
   const { state, dispatch } = useApp();
@@ -36,21 +47,35 @@ export function Calculators() {
     goalAmountToday: 2000000,
     goalAmountBasis: "today",
     openingBalance: 0,
+    withdrawalMonthly: 50000,
+    withdrawalInflates: true,
+    pensionMonthly: 0,
+    principal: 2500000,
+    nominalRate: 0.09,
+    compoundingPerYear: 4,
+    extraPrepay: 0,
   });
 
   const patch = (p: Partial<ScenarioInputs>) => setInputs((s) => ({ ...s, ...p, kind }));
-  const setKindAnd = (k: CalculatorKind) => { setKind(k); setInputs((s) => ({ ...s, kind: k })); setSaved(null); };
+  const setKindAnd = (k: CalculatorKind) => {
+    setKind(k);
+    setInputs((s) => ({ ...s, kind: k }));
+    setSaved(null);
+    setShowReal(false);
+  };
 
   const result = useMemo(() => {
     try {
       return runScenario({ ...inputs, kind });
-    } catch (e) {
+    } catch {
       return null;
     }
   }, [inputs, kind]);
 
+  const canReal = result?.isAccumulation !== false;
+
   function save() {
-    const name = `${KINDS.find((k) => k.id === kind)?.label} · ${inputs.years}y @ ${formatPercent(inputs.annualReturn)}`;
+    const name = `${KINDS.find((k) => k.id === kind)?.label} · ${inputs.years}y`;
     dispatch({
       type: "SAVE_SCENARIO",
       scenario: { id: uid("scn"), name, createdAt: todayISO(), inputs: { ...inputs, kind }, engineVersion: ENGINE_VERSION },
@@ -58,10 +83,12 @@ export function Calculators() {
     setSaved(name);
   }
 
+  const cols = result?.tableColumns ?? { period: "Period", contributed: "Contributed", growth: "Growth", value: "Value" };
+
   return (
     <div>
       <PageHead title="Calculators">
-        Explore a plan before importing anything. Every result shows its formula and separates what you contribute from growth. Assumptions are yours to set — these are illustrations, not forecasts or guaranteed returns.
+        Explore a plan before importing anything. Every result shows its formula and separates what you put in from what the maths adds. Assumptions are yours to set — these are illustrations, not forecasts or guaranteed returns.
       </PageHead>
 
       <div className="tabs">
@@ -97,32 +124,72 @@ export function Calculators() {
             <SliderField label="Annual step-up" value={inputs.annualStepUp ?? 0} min={0} max={0.25} step={0.01} onChange={(v) => patch({ annualStepUp: v })} format={(v) => formatPercent(v)} />
           )}
 
-          <SliderField label="Time horizon" value={inputs.years} min={1} max={40} step={1} onChange={(v) => patch({ years: v })} format={(v) => `${v} years`} />
-
-          {kind !== "goal_future" && (
+          {(kind === "swp" || kind === "retirement") && (
             <>
-              <SliderField label="Assumed annual return" value={inputs.annualReturn} min={-0.05} max={0.2} step={0.005} onChange={(v) => patch({ annualReturn: v })} format={(v) => formatPercent(v)} />
+              <NumberField label="Starting corpus" prefix="₹" value={inputs.openingBalance ?? 0} onChange={(v) => patch({ openingBalance: v })} min={0} />
+              <NumberField label={kind === "retirement" ? "Monthly expense (today's rupees)" : "Monthly withdrawal"} prefix="₹" value={inputs.withdrawalMonthly ?? 0} onChange={(v) => patch({ withdrawalMonthly: v })} min={0} />
+              {kind === "retirement" && (
+                <NumberField label="Monthly pension / other income" prefix="₹" value={inputs.pensionMonthly ?? 0} onChange={(v) => patch({ pensionMonthly: v })} min={0} />
+              )}
+              <div className="field"><Toggle label="Increase withdrawals with inflation each year" checked={!!inputs.withdrawalInflates} onChange={(v) => patch({ withdrawalInflates: v })} /></div>
+            </>
+          )}
+
+          {kind === "fd" && (
+            <>
+              <NumberField label="Principal" prefix="₹" value={inputs.principal ?? 0} onChange={(v) => patch({ principal: v })} min={0} />
+              <SelectField<string> label="Compounding" value={String(inputs.compoundingPerYear ?? 4)} onChange={(v) => patch({ compoundingPerYear: Number(v) })}
+                options={[{ value: "1", label: "Annual" }, { value: "2", label: "Half-yearly" }, { value: "4", label: "Quarterly" }, { value: "12", label: "Monthly" }]} />
+            </>
+          )}
+          {kind === "rd" && (
+            <NumberField label="Monthly deposit" prefix="₹" value={inputs.monthlyContribution ?? 0} onChange={(v) => patch({ monthlyContribution: v })} min={0} />
+          )}
+          {kind === "loan" && (
+            <>
+              <NumberField label="Loan principal" prefix="₹" value={inputs.principal ?? 0} onChange={(v) => patch({ principal: v })} min={0} />
+              <NumberField label="Extra prepayment / month (optional)" prefix="₹" value={inputs.extraPrepay ?? 0} onChange={(v) => patch({ extraPrepay: v })} min={0} />
+            </>
+          )}
+
+          <SliderField label={kind === "loan" ? "Loan tenure" : kind === "fd" || kind === "rd" ? "Term" : "Time horizon"} value={inputs.years} min={1} max={kind === "retirement" || kind === "swp" ? 50 : 40} step={1} onChange={(v) => patch({ years: v })} format={(v) => `${v} years`} />
+
+          {USES_RETURN.has(kind) && kind !== "goal_future" && (
+            <>
+              <SliderField label={kind === "swp" || kind === "retirement" ? "Assumed return during drawdown" : "Assumed annual return"} value={inputs.annualReturn} min={-0.05} max={0.2} step={0.005} onChange={(v) => patch({ annualReturn: v })} format={(v) => formatPercent(v)} />
               <NumberField label="…or type it exactly" suffix="% p.a." value={Number((inputs.annualReturn * 100).toFixed(2))} onChange={(v) => patch({ annualReturn: v / 100 })} step={0.1} />
             </>
           )}
 
-          <SliderField label="Assumed inflation" value={inputs.annualInflation} min={0} max={0.12} step={0.005} onChange={(v) => patch({ annualInflation: v })} format={(v) => formatPercent(v)} />
+          {USES_NOMINAL.has(kind) && (
+            <NumberField label={kind === "loan" ? "Interest rate (nominal, reducing balance)" : "Interest rate (nominal)"} suffix="% p.a." value={Number(((inputs.nominalRate ?? 0) * 100).toFixed(2))} onChange={(v) => patch({ nominalRate: v / 100 })} step={0.05} min={0} />
+          )}
 
-          {(kind === "sip" || kind === "stepup" || kind === "required_sip") && (
+          {USES_INFLATION.has(kind) && (
+            <SliderField label="Assumed inflation" value={inputs.annualInflation} min={0} max={0.12} step={0.005} onChange={(v) => patch({ annualInflation: v })} format={(v) => formatPercent(v)} />
+          )}
+
+          {USES_TIMING.has(kind) && (
             <div className="field">
-              <span className="field-label">Contribution timing</span>
+              <span className="field-label">{kind === "swp" || kind === "retirement" ? "Withdrawal timing" : "Contribution timing"}</span>
               <Segmented value={inputs.timing} onChange={(v) => patch({ timing: v })} options={[{ value: "end", label: "End of month" }, { value: "begin", label: "Start of month" }]} />
             </div>
           )}
 
-          <Callout tone="info">Assumed annual return is illustrative and never inferred from any fund's past performance.</Callout>
+          <Callout tone="info">
+            {USES_NOMINAL.has(kind)
+              ? "Rates here use the market convention (nominal ÷ compounding). This is a generic tool, not a product-specific quote."
+              : "Assumed return is illustrative and never inferred from any fund's past performance."}
+          </Callout>
         </Card></Reveal>
 
         <Reveal delay={120} className="stack">
           <Card>
             <div className="row between">
               <h3 style={{ margin: 0 }}>Result</h3>
-              <Segmented value={showReal ? "real" : "nominal"} onChange={(v) => setShowReal(v === "real")} options={[{ value: "nominal", label: "Nominal" }, { value: "real", label: "Today's money" }]} />
+              {canReal && (
+                <Segmented value={showReal ? "real" : "nominal"} onChange={(v) => setShowReal(v === "real")} options={[{ value: "nominal", label: "Nominal" }, { value: "real", label: "Today's money" }]} />
+              )}
             </div>
 
             {!result ? (
@@ -138,7 +205,7 @@ export function Calculators() {
                   ))}
                 </div>
 
-                {result.notes.map((n, i) => <div key={i} style={{ marginTop: 10 }}><Callout tone="info">{n}</Callout></div>)}
+                {result.notes.map((n, i) => <div key={i} style={{ marginTop: 10 }}><Callout tone={result.depletionMonth != null && i === 0 ? "warn" : "info"}>{n}</Callout></div>)}
 
                 <Disclosure summary="How this is calculated">{result.formula}</Disclosure>
 
@@ -153,12 +220,15 @@ export function Calculators() {
 
           {result && (
             <Card>
-              <GrowthChart title={showReal ? "Value in today's money" : "Projected value over time"} data={showReal
-                ? result.series.map((p) => ({ ...p, value: p.value / Math.pow(1 + inputs.annualInflation, (labelToYears(p.label)) ), contributed: p.contributed }))
-                : result.series} />
+              <GrowthChart
+                title={showReal ? "Value in today's money" : result.legend ? result.legend.value + " over time" : "Projected value over time"}
+                legend={result.legend}
+                data={showReal
+                  ? result.series.map((p) => ({ ...p, value: p.value / Math.pow(1 + inputs.annualInflation, labelToYears(p.label)), contributed: p.contributed }))
+                  : result.series} />
               <div className="table-scroll" style={{ marginTop: 12 }}>
                 <table className="data">
-                  <thead><tr><th>Period</th><th className="num">Contributed</th><th className="num">Growth</th><th className="num">Value</th></tr></thead>
+                  <thead><tr><th>{cols.period}</th><th className="num">{cols.contributed}</th><th className="num">{cols.growth}</th><th className="num">{cols.value}</th></tr></thead>
                   <tbody>
                     {result.table.map((r, i) => (
                       <tr key={i}>

@@ -17,7 +17,9 @@ export interface GrowthPoint {
  * projection boundary pulses — reinforcing the actual-vs-projected story.
  * Includes a screen-reader table and a toggle to show the data as a table.
  */
-export function GrowthChart({ data, height = 260, title }: { data: GrowthPoint[]; height?: number; title: string }) {
+export function GrowthChart({ data, height = 260, title, legend }: { data: GrowthPoint[]; height?: number; title: string; legend?: { value: string; contributed: string } }) {
+  const valueLabel = legend?.value ?? "Growth";
+  const contribLabel = legend?.contributed ?? "Contributed capital";
   const [showTable, setShowTable] = useState(false);
   const valueRef = useRef<SVGPathElement | null>(null);
   const contribRef = useRef<SVGPathElement | null>(null);
@@ -142,8 +144,8 @@ export function GrowthChart({ data, height = 260, title }: { data: GrowthPoint[]
       )}
 
       <div className="chip-row" style={{ marginTop: 10, fontSize: "0.8rem" }}>
-        <span><span className="tag-dot" style={{ background: "var(--teal-600)" }} /> Contributed capital</span>
-        <span><span className="tag-dot" style={{ background: "var(--indigo-600)" }} /> Growth</span>
+        <span><span className="tag-dot" style={{ background: "var(--teal-600)" }} /> {contribLabel}</span>
+        <span><span className="tag-dot" style={{ background: "var(--indigo-600)" }} /> {valueLabel}</span>
       </div>
     </figure>
   );

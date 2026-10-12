@@ -12,6 +12,12 @@ import {
   fundingRatio,
   project,
   projectedFinalValue,
+  emi,
+  amortize,
+  fdMaturity,
+  rdMaturityGeneric,
+  drawdownProjection,
+  sequenceStress,
 } from "./finance";
 import { round2 } from "./money";
 import { xirr } from "./xirr";
@@ -173,5 +179,79 @@ describe("edge cases and conventions", () => {
     const begin = sipFV(1000, 0.01, 12, "begin");
     expect(begin).toBeGreaterThan(end);
     expect(round2(begin)).toBe(round2(end * 1.01));
+  });
+});
+
+
+describe("decumulation & more calculators (P1)", () => {
+  it("EMI: 100000 @ 0% over 10 months -> 10,000", () => {
+    expect(round2(emi(100000, 0, 10))).toBe(10000);
+  });
+
+  it("EMI: 100000 @ 12% nominal over 12 months -> 8,884.88", () => {
+    expect(round2(emi(100000, 0.12, 12))).toBe(8884.88);
+  });
+
+  it("EMI rejects non-positive tenure", () => {
+    expect(() => emi(100000, 0.1, 0)).toThrow();
+  });
+
+  it("Amortization pays the loan off exactly on schedule with no prepayment", () => {
+    const a = amortize(100000, 0.12, 12);
+    expect(a.payoffMonth).toBe(12);
+    expect(round2(a.rows[a.rows.length - 1].balance)).toBe(0);
+    expect(round2(a.totalInterest)).toBe(6618.55);
+  });
+
+  it("Monthly prepayment shortens the tenure and cuts interest", () => {
+    const base = amortize(2500000, 0.09, 240);
+    const pre = amortize(2500000, 0.09, 240, 5000);
+    expect(pre.payoffMonth).toBeLessThan(base.payoffMonth);
+    expect(pre.totalInterest).toBeLessThan(base.totalInterest);
+    expect(pre.payoffMonth).toBe(154);
+  });
+
+  it("FD: 1,00,000 @ 8% nominal, quarterly, 1 year -> 1,08,243.22", () => {
+    const r = fdMaturity(100000, 0.08, 1, 4);
+    expect(round2(r.maturity)).toBe(108243.22);
+    expect(round2(r.interest)).toBe(8243.22);
+    expect(near(r.effectiveYield, 0.08243216, 1e-6)).toBe(true);
+  });
+
+  it("FD at 0% returns the principal", () => {
+    expect(round2(fdMaturity(50000, 0, 5, 4).maturity)).toBe(50000);
+  });
+
+  it("RD (generic): 1,000/mo @ 12% nominal for 12 months -> 12,682.50", () => {
+    const r = rdMaturityGeneric(1000, 0.12, 12);
+    expect(round2(r.maturity)).toBe(12682.5);
+    expect(round2(r.interest)).toBe(682.5);
+  });
+
+  it("Drawdown: 10,00,000 at 0% withdrawing 1,00,000/mo depletes in month 11", () => {
+    const d = drawdownProjection({ openingCorpus: 1000000, months: 12, annualReturn: 0, firstMonthlyWithdrawal: 100000 });
+    expect(d.depletionMonth).toBe(11);
+    expect(round2(d.endingBalance)).toBe(0);
+    expect(round2(d.totalUnmet)).toBe(200000);
+  });
+
+  it("Drawdown: a small withdrawal from a large corpus never depletes", () => {
+    const d = drawdownProjection({ openingCorpus: 1000000, months: 12, annualReturn: 0.1, firstMonthlyWithdrawal: 5000 });
+    expect(d.depletionMonth).toBeNull();
+    expect(d.endingBalance).toBeGreaterThan(1000000);
+  });
+
+  it("Pension income reduces the net withdrawal from the corpus", () => {
+    const withPension = drawdownProjection({ openingCorpus: 1000000, months: 12, annualReturn: 0, firstMonthlyWithdrawal: 100000, monthlyPension: 100000 });
+    expect(withPension.depletionMonth).toBeNull();
+    expect(round2(withPension.endingBalance)).toBe(1000000);
+  });
+
+  it("Sequence risk: bad-early depletes no later and ends no higher than good-early", () => {
+    const s = sequenceStress(5000000, 360, 0.09, 35000, 0.06);
+    const bad = s.badEarly.depletionMonth ?? Number.POSITIVE_INFINITY;
+    const good = s.goodEarly.depletionMonth ?? Number.POSITIVE_INFINITY;
+    expect(bad).toBeLessThanOrEqual(good);
+    expect(s.badEarly.endingBalance).toBeLessThanOrEqual(s.goodEarly.endingBalance + 1e-6);
   });
 });
