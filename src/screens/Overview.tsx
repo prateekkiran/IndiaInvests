@@ -116,7 +116,7 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
     <div>
       <PageHead title="Overview" />
       <DemoTip id="overview" title="This is your financial home base">
-        Net worth, asset allocation, since-inception XIRR and goal progress — all derived from the demo transactions. Open <strong>Portfolio → Value history</strong> to see actual value over time, or <strong>Household</strong> to see goals planned against one shared budget.
+        Net worth, asset allocation, since-inception XIRR and goal progress — all from Asha's demo data. Scroll down for <strong>auto-insights</strong> drawn from this portfolio, open <strong>Portfolio → Performance</strong> for the <strong>time-weighted return</strong> and a hypothetical benchmark, or press <kbd>⌘K</kbd> to jump anywhere.
       </DemoTip>
 
       {(summary.unvaluedCount > 0 || summary.anyStale) && (

@@ -155,6 +155,10 @@ export function buildDemoState(): AppState {
       id: uid("scn"), name: "Retirement drawdown · 30y", createdAt: today, engineVersion: ENGINE_VERSION,
       inputs: { kind: "retirement", openingBalance: 30000000, withdrawalMonthly: 120000, withdrawalInflates: true, pensionMonthly: 25000, annualReturn: 0.08, annualInflation: 0.06, years: 30, timing: "end" },
     },
+    {
+      id: uid("scn"), name: "SWP · ₹40k/mo for 25y", createdAt: today, engineVersion: ENGINE_VERSION,
+      inputs: { kind: "swp", openingBalance: 10000000, withdrawalMonthly: 40000, withdrawalInflates: true, annualReturn: 0.08, annualInflation: 0.06, years: 25, timing: "end" },
+    },
   ];
 
   return {

@@ -14,6 +14,8 @@ import { VaultGate } from "./screens/VaultGate";
 import { Icon, IconName } from "./components/Icon";
 import { DemoBanner } from "./demo/DemoUI";
 import { InstallPrompt } from "./components/InstallPrompt";
+import { CommandPalette } from "./components/CommandPalette";
+import { Tour } from "./onboarding/Tour";
 
 type Route = "overview" | "portfolio" | "goals" | "household" | "explore" | "calculators" | "data" | "settings";
 
@@ -91,6 +93,11 @@ function Shell() {
             <div className="brand-sub">Journey · on-device</div>
           </div>
         </div>
+        <button className="cmdk-launch" onClick={() => window.dispatchEvent(new CustomEvent("iij:open-palette"))} aria-label="Open command palette (Command K)">
+          <span className="ico" aria-hidden><Icon name="search" size={16} /></span>
+          <span>Search</span>
+          <kbd>⌘K</kbd>
+        </button>
         {NAV.map((n) => (
           <button key={n.id} className={`navlink ${route === n.id ? "active" : ""}`} onClick={() => go(n.id)} aria-current={route === n.id ? "page" : undefined}>
             <span className="ico" aria-hidden><Icon name={n.ico} size={19} /></span>
@@ -119,6 +126,8 @@ function Shell() {
         ))}
       </nav>
       <InstallPrompt />
+      <CommandPalette />
+      <Tour />
     </div>
   );
 }
