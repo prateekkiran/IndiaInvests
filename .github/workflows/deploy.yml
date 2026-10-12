@@ -1,14 +1,25 @@
-name: Build & Deploy to Netlify
+name: Build & Deploy to GitHub Pages
 
-# Auto-deploys on every push to main. Uses a Netlify Personal Access Token +
-# Site ID stored as repo secrets, so no Netlify<->GitHub OAuth app is needed.
+# Auto-deploys on every push to main. Hosted on GitHub Pages, which is free for
+# public repos with unlimited Actions minutes — no Netlify credits consumed.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# Permissions the Pages deployment needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy at a time; newer pushes supersede in-flight ones.
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -27,8 +38,28 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Deploy to Netlify (production)
-        run: npx --yes netlify deploy --prod --dir=dist --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      - name: Disable Jekyll processing
+        run: touch dist/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Enable GitHub Pages via the API on first run so no manual
+          # repo-settings step is needed.
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

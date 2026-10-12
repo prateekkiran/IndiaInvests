@@ -5,6 +5,8 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // 100% client-side build. No proxy, no server runtime, no external API calls.
 export default defineConfig({
+  // Served from a GitHub Pages project sub-path: https://<user>.github.io/IndiaInvests/
+  base: "/IndiaInvests/",
   plugins: [
     react(),
     VitePWA({
@@ -18,7 +20,8 @@ export default defineConfig({
         theme_color: "#b4542f",
         background_color: "#faf9f5",
         display: "standalone",
-        start_url: "/",
+        start_url: "/IndiaInvests/",
+        scope: "/IndiaInvests/",
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },

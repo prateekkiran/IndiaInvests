@@ -97,7 +97,7 @@ function Shell() {
         <div className="muted" style={{ fontSize: "0.72rem", padding: "8px" }}>
           Private & offline. No market data is fetched automatically.
           <br />
-          <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: "var(--indigo-600)" }}>Privacy</a>
+          <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noopener noreferrer" style={{ color: "var(--indigo-600)" }}>Privacy</a>
         </div>
       </nav>
 

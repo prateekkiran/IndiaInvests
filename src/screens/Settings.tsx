@@ -68,7 +68,7 @@ export function Settings() {
           </p>
           <Badge tone="neutral">Engine {state.engineVersion}</Badge>
           <p className="soft" style={{ fontSize: "0.85rem", marginTop: 10 }}>
-            <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a> — your data stays on this device.
+            <a href={`${import.meta.env.BASE_URL}privacy.html`} target="_blank" rel="noopener noreferrer">Privacy policy</a> — your data stays on this device.
           </p>
         </Card>
       </div>
