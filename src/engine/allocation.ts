@@ -32,7 +32,12 @@ export function allocationDrift(
   weights: Record<string, number>
 ): DriftResult {
   const total = current.reduce((a, c) => a + (c.value > 0 ? c.value : 0), 0);
-  const wsum = Object.values(weights).reduce((a, b) => a + (b > 0 ? b : 0), 0);
+  // Only weights for classes actually held participate in the normalising sum —
+  // a target for a class you don't hold is ignored by design (this lens reshapes
+  // what you already hold). Summing unheld weights too would shrink every held
+  // class's target fraction and leak a phantom allocation into the book.
+  const heldClasses = new Set(current.map((c) => c.assetClass));
+  const wsum = Object.entries(weights).reduce((a, [k, b]) => a + (heldClasses.has(k) && b > 0 ? b : 0), 0);
   const hasTargets = wsum > 0 && total > 0;
 
   const rows: DriftRow[] = current.map((c) => {
