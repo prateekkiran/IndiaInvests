@@ -184,6 +184,9 @@ export function buildDemoState(): AppState {
     goals,
     contributionStreams,
     savedScenarios,
+    // Seeded target mix so the Rebalance lens shows a real, non-trivial drift
+    // immediately in the demo (Asha is a touch overweight equity vs this mix).
+    targetAllocation: { equity_mf: 0.5, debt_mf: 0.15, epf: 0.12, ppf: 0.08, gold: 0.05, cash: 0.1 },
     household: {
       monthlyBudget: 60000,
       annualStepUp: 0.05,

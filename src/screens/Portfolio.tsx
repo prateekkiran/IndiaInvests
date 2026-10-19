@@ -4,6 +4,7 @@ import { Tabs, PageHead, Card, Button, Badge, Callout, NumberField, TextField, S
 import { StorageSetup } from "../components/StorageSetup";
 import { currentHoldings, portfolioSummary, portfolioPerformance, valueHistory } from "../store/portfolio";
 import { timeWeightedReturn, hypotheticalBenchmark } from "../store/returns";
+import { allocationDrift } from "../engine/allocation";
 import { parseCsvFile, downloadTemplate, CsvTemplate, CsvPreview } from "../import/csv";
 import { parseCasPdf, CasResult } from "../import/cas";
 import { parseNavPackage, NavPackageResult, downloadSampleNavPackage } from "../import/navpackage";
@@ -140,6 +141,86 @@ function TransactionsTab() {
   );
 }
 
+const ACLASS_LABEL: Record<string, string> = {
+  equity_mf: "Equity funds", debt_mf: "Debt funds", hybrid_mf: "Hybrid funds", other_mf: "Other funds",
+  cash: "Cash", fd_rd: "FD / RD", epf: "EPF", ppf: "PPF", nps: "NPS", gold: "Gold", property: "Property", other: "Other",
+};
+
+function RebalanceCard() {
+  const { state } = useApp();
+  const summary = portfolioSummary(state);
+  const classes = summary.byAssetClass.filter((a) => a.value > 0);
+  const seeded = state.targetAllocation;
+  const [targetPct, setTargetPct] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    const total = summary.valuedTotal || 1;
+    for (const a of classes) {
+      const se = seeded?.[a.assetClass];
+      init[a.assetClass] = se != null ? Math.round(se * 100) : Math.round((a.value / total) * 100);
+    }
+    return init;
+  });
+
+  if (classes.length < 2) {
+    return (
+      <Card>
+        <h3>Rebalance lens</h3>
+        <Callout tone="info">Add at least two valued asset classes to model a target mix.</Callout>
+      </Card>
+    );
+  }
+
+  const drift = allocationDrift(classes.map((c) => ({ assetClass: c.assetClass, value: c.value })), targetPct);
+  const sumPct = Object.values(targetPct).reduce((a, b) => a + b, 0);
+
+  return (
+    <Card>
+      <h3>Rebalance lens</h3>
+      <p className="soft">Set a target mix and see the exact rupee moves to reach it. This is arithmetic on your own numbers — <strong>not advice</strong>, and it sets aside any tax or cost of switching.</p>
+      <div className="rebalance-sliders">
+        {classes.map((c) => (
+          <SliderField
+            key={c.assetClass}
+            label={ACLASS_LABEL[c.assetClass] ?? c.assetClass}
+            value={targetPct[c.assetClass] ?? 0}
+            min={0}
+            max={100}
+            step={1}
+            onChange={(v) => setTargetPct((t) => ({ ...t, [c.assetClass]: v }))}
+            format={(v) => `${v}%`}
+          />
+        ))}
+      </div>
+      {Math.abs(sumPct - 100) > 0.5 && (
+        <Callout tone="info">Your targets add up to {sumPct}% — they’re scaled to 100% automatically when computing the moves.</Callout>
+      )}
+      <table className="data" style={{ marginTop: 10 }}>
+        <thead>
+          <tr><th>Asset class</th><th className="num">Now</th><th className="num">Target</th><th className="num">Drift</th><th className="num">Move</th></tr>
+        </thead>
+        <tbody>
+          {drift.rows.map((r) => (
+            <tr key={r.assetClass}>
+              <td>{ACLASS_LABEL[r.assetClass] ?? r.assetClass}</td>
+              <td className="num">{formatPercent(r.currentFraction)}</td>
+              <td className="num">{formatPercent(r.targetFraction)}</td>
+              <td className="num" style={{ color: Math.abs(r.driftPp) < 0.05 ? "var(--text-faint)" : r.driftPp > 0 ? "var(--amber-600)" : "var(--indigo-600)" }}>
+                {r.driftPp >= 0 ? "+" : ""}{r.driftPp.toFixed(1)} pp
+              </td>
+              <td className="num" style={{ fontWeight: 600, color: r.deltaRupees >= 0 ? "var(--green-600)" : "var(--amber-600)" }}>
+                {r.deltaRupees >= 0 ? "Buy " : "Trim "}{formatINRCompact(Math.abs(r.deltaRupees))}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="muted" style={{ fontSize: "0.78rem", marginTop: 10 }}>
+        One-way rebalance size: {formatINR(drift.turnover)} — buys balance trims, so your total stays {formatINRCompact(drift.total)}.
+      </p>
+    </Card>
+  );
+}
+
 function PerformanceTab() {
   const { state } = useApp();
   const perf = portfolioPerformance(state);
@@ -212,6 +293,7 @@ function PerformanceTab() {
         </table>
       </Card>
     )}
+    <RebalanceCard />
     </div>
   );
 }

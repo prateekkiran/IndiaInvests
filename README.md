@@ -12,6 +12,12 @@ decisions could affect future goals.**
 
 Live: https://prateekkiran.github.io/IndiaInvests/
 
+> **Working on this project?** Read **`AGENTS.md`** first — it is the mandatory git-first
+> operating protocol (git is the source of truth; sync from `origin/main` at the start of
+> every session and push everything back at the end). **`HANDOFF.md`** has the architecture
+> and module map. One-command sync: `bash project-sync.sh` (verify) or
+> `bash project-sync.sh "message"` (commit + push + verify).
+
 ## Run it
 
 ```bash

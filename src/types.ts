@@ -290,6 +290,8 @@ export interface AppState {
   household?: HouseholdPlan;
   /** True when the state is the seeded demo account (never persisted to a vault). */
   demo?: boolean;
+  /** Optional user-chosen target allocation by asset class (fractions, 0..1). Modelled in the Rebalance lens; seeded in the demo. */
+  targetAllocation?: Partial<Record<AssetClass, number>>;
 }
 
 export const SCHEMA_VERSION = 1;

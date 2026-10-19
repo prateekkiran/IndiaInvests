@@ -116,7 +116,7 @@ export function Overview({ onNavigate }: { onNavigate: (route: string) => void }
     <div>
       <PageHead title="Overview" />
       <DemoTip id="overview" title="This is your financial home base">
-        Net worth, asset allocation, since-inception XIRR and goal progress — all from Asha's demo data. Scroll down for <strong>auto-insights</strong> drawn from this portfolio, open <strong>Portfolio → Performance</strong> for the <strong>time-weighted return</strong> and a hypothetical benchmark, or press <kbd>⌘K</kbd> to jump anywhere.
+        Net worth, asset allocation, since-inception XIRR and goal progress — all from Asha's demo data. Scroll down for <strong>auto-insights</strong>, open <strong>Portfolio → Performance</strong> for the <strong>time-weighted return</strong>, a hypothetical benchmark and the new <strong>rebalance lens</strong> (drag a target mix, see the rupee moves). Press <kbd>⌘K</kbd> to jump anywhere, or <kbd>?</kbd> for all shortcuts.
       </DemoTip>
 
       {(summary.unvaluedCount > 0 || summary.anyStale) && (

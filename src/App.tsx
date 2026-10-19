@@ -16,6 +16,7 @@ import { DemoBanner } from "./demo/DemoUI";
 import { InstallPrompt } from "./components/InstallPrompt";
 import { CommandPalette } from "./components/CommandPalette";
 import { Tour } from "./onboarding/Tour";
+import { ShortcutsHelp } from "./components/ShortcutsHelp";
 
 type Route = "overview" | "portfolio" | "goals" | "household" | "explore" | "calculators" | "data" | "settings";
 
@@ -128,6 +129,7 @@ function Shell() {
       <InstallPrompt />
       <CommandPalette />
       <Tour />
+      <ShortcutsHelp />
     </div>
   );
 }

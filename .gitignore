@@ -6,6 +6,7 @@ dist-ssr
 .env
 .env.*
 .netlify
+.preview
 *.log
 coverage
 dev-dist

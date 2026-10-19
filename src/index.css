@@ -383,3 +383,19 @@ figure svg { border-radius: 10px; }
 .tour-tip { width: min(340px, 92vw); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-lg, 0 20px 60px rgba(0,0,0,0.25)); padding: 16px 18px; z-index: 161; }
 .tour-step-count { font-family: var(--mono, ui-monospace, monospace); font-size: 0.72rem; color: var(--text-faint); letter-spacing: 0.04em; }
 @media (prefers-reduced-motion: reduce) { .tour-spot { transition: none; } }
+
+/* ---- Keyboard shortcuts help ---- */
+.shortcuts-list { display: flex; flex-direction: column; gap: 2px; }
+.shortcut-row { display: flex; align-items: center; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.shortcut-row:last-child { border-bottom: none; }
+.shortcut-keys { display: inline-flex; gap: 5px; min-width: 92px; }
+.shortcut-label { font-size: 0.9rem; }
+.shortcut-keys kbd, .shortcuts-list kbd {
+  font-family: var(--mono, ui-monospace, SFMono-Regular, monospace); font-size: 0.74rem;
+  background: var(--surface-sunken, rgba(0,0,0,0.05)); border: 1px solid var(--border);
+  border-radius: 5px; padding: 2px 7px; color: inherit;
+}
+
+/* ---- Rebalance lens ---- */
+.rebalance-sliders { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px 24px; margin: 10px 0 4px; }
+@media (max-width: 820px) { .rebalance-sliders { grid-template-columns: 1fr; } }

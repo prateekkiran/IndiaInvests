@@ -41,6 +41,7 @@ export function CommandPalette() {
     { id: "demo-load", label: "Load demo account", keywords: "sample asha walkthrough try", icon: "sparkle", run: () => loadDemo(), show: () => !isDemo },
     { id: "demo-exit", label: "Exit demo account", keywords: "leave sample asha", icon: "arrow-right", run: () => exitDemo(), show: () => isDemo },
     { id: "tour", label: "Replay the guided tour", keywords: "onboarding help coachmarks walkthrough", icon: "sparkle", run: () => window.dispatchEvent(new CustomEvent("iij:start-tour")) },
+    { id: "shortcuts", label: "Show keyboard shortcuts", keywords: "help keys hotkeys cheatsheet", icon: "sparkle", run: () => window.dispatchEvent(new CustomEvent("iij:show-shortcuts")) },
     { id: "privacy", label: "Open the privacy page", keywords: "data policy offline on-device", icon: "lock", run: () => window.open(`${import.meta.env.BASE_URL}privacy.html`, "_blank", "noopener") },
   ];
   const commands = all.filter((c) => (c.show ? c.show() : true));
